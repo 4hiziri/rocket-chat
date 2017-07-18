@@ -61,6 +61,16 @@
 	     :sync t)
     ret))
 
+(defun get-json (url header arg-json-alist)
+  (let ((ret nil))
+    (request url
+	     :params arg-json-alist
+	     :parser 'json-read
+	     :headers header
+	     :success (exec-form (setq ret data))
+	     :sync t)
+    ret))
+
 (defun reg-info-to-alist (reg-info)
   (let ((ret nil))
     (push `(:email ,(reg-info-email reg-info)) ret)
@@ -246,6 +256,171 @@ PASSWORD - user's password"
     (post-json (concat url "/api/v1/channels.addAll")
 		  (auth-headers auth-token)
 		  alist)))
+
+;; :TODO test
+(defun channels-add-moderator (url auth-token roomid userid)  
+  (let ((ret (post-json (concat url "/api/v1/channels.addModerator")
+		(auth-headers auth-token)
+		(list (cons :roomId roomid)
+		      (cons :userId userid)))))
+    (assoc-val 'success ret)))
+
+;; :TODO test
+(defun channels-add-owner (url auth-token roomid userid)
+  (let ((ret (post-json (cancat url "/api/v1/channels.addOwner")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    (assoc-val 'success ret)))
+
+(defun channels-archive (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/channels.archive")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    (assoc-val 'success ret)))
+
+;; :TODO time-converter
+;; (defun channels-clean-history (url auth-token roomid start end &optional inclusive))
+
+(defun channels-close (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/channels.close")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    (assoc-val 'success ret)))
+
+;; :TODO add members
+;; :TODO create channel struct
+(defun channels-create (url auth-token room-name &optional members)
+  (let ((ret (post-json (concat url "/api/v1/channels.create")
+			(auth-headers auth-token)
+			(list (cons :name room-name)))))
+    ret))
+
+(defun channels-get-integrations (url auth-token roomid)
+  (let ((ret (get-json (concat url "/api/v1/channels.getIntegrations")
+		       (auth-headers auth-token)
+		       (list (cons "roomId" roomid)))))
+    ret))
+
+;; :TODO make struct
+;; (defun channels-history (url auth-toke ))
+
+;; :TODO channel-struct
+(defun channels-info (url auth-token roomid &optional roomid-p)
+  (let ((ret (get-json (concat url "/api/v1/channels.info")
+		       (auth-headers auth-token)
+		       (list (if roomid-p
+				 (cons "roomId" roomid)
+			       (cons "roomName" roomid))))))
+    ret))
+
+(defun channels-invite (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/channels.invite")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun channels-kick (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/channels.kick")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun channels-leave (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/channels.leave")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    ret))
+
+(defun channels-list-joined (url auth-token)
+  (let ((ret (get-json (concat url "/api/v1/channels.list.joined")
+		       (auth-headers auth-token)
+		       nil)))
+    ret))
+
+(defun channels-list (url auth-token)
+  (let ((ret (get-json (concat url "/api/v1/channels.list")
+		       (auth-headers auth-token)
+		       nil)))
+    ret))
+
+(defun channels-open (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/channels.open")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    ret))
+
+(defun channels-remove-moderator (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/channels.removeModerator")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun channels-remove-owner (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/channels.removeOwner")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun channels-rename (url auth-token roomid roomname)
+  (let ((ret (post-json (concat url "/api/v1/channels.rename")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :name roomname)))))
+    ret))
+
+(defun channels-set-description (url auth-token roomid description)
+  (let ((ret (post-json (concat url "/api/v1/channels.setDescription")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :description description)))))
+    ret))
+
+(defun channels-set-join-code (url auth-token roomid join-code)
+  (let ((ret (post-json (concat url "/api/v1/channels.setJoinCode")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :joinCode join-code)))))
+    ret))
+
+(defun channels-set-purpose (url auth-token roomid purpose)
+  (let ((ret (post-json (concat url "/api/v1/channels.setPurpose")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :purpose purpose)))))
+    ret))
+
+(defun channels-set-read-only (url auth-token roomid readonly)
+  (let ((ret (post-json (concat url "/api/v1/channels.setPurpose")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :readOnly (if readonly "true" "false"))))))
+    ret))
+
+(defun channels-set-topic (url auth-token roomid topic)
+  (let ((ret (post-json (concat url "/api/v1/channels.setTopic")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :topic topic)))))
+    ret))
+
+;; type-> c or p
+(defun channels-set-type (url auth-token roomid type)
+  (let ((ret (post-json (concat url "/api/v1/channels.setType")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :type type)))))
+    ret))
+
+(defun channels-unarchive (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/channels.unarchive")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    ret))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
