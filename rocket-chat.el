@@ -7,6 +7,8 @@
 (require 'json)
 (require 'cl-lib)
 
+(setq url "https://rc.net.itc.nagoya-u.ac.jp")
+
 (defstruct auth-token
   (user-id nil)
   (token nil))
@@ -24,9 +26,6 @@
   (verified nil)
   (customFields "undefined") ;; {field : value}
   )
-
-(defvar test-url "https://rc.net.itc.nagoya-u.ac.jp")
-(defvar auth-info nil)
 
 (defun assoc-val (key alist)
   "This return val of KEY from ALIST."
@@ -197,6 +196,56 @@ PASSWORD - user's password"
 	     :success (exec-form (setq ret data))
 	     :sync t)
     ret))
+
+;; :TODO def user struct and return list of struct-user
+(defun users-list (url auth-token)
+  (let ((ret nil))
+    (request (concat url "/api/v1/users.list")
+	     :parser 'json-read
+	     :headers (auth-headers auth-token)
+	     :success (exec-form (setq ret data))
+	     :sync t)
+    ret))
+
+;; :TODO optional secretURL
+(defun users-register (url reg-info)
+  (flet ((alist (reg-info)
+		(list (cons :email (reg-info-email reg-info))
+		      (cons :pass (reg-info-password reg-info))
+		      (cons :name (reg-info-name reg-info)))))
+    (let ((ret (post-json (concat url "/api/v1/users.register")
+			  nil
+			  (alist reg-info))))
+      ret)))
+
+(defun users-reset-avatar (url auth-token user-id &optional userid-p)
+  (assoc-val 'success (post-json (concat url "/api/v1/users.resetAvatar")
+				 (auth-headers auth-token)
+				 (if userid-p
+				     `(("userId" . ,user-id))
+				   `(("username" . ,user-id))))))
+
+;; :TODO picture
+;; (defun users-set-avatar)
+
+;; :TODO test
+(defun users-update (url auth-token reg-info)
+  (post-json (concat url "/api/v1/users.update")
+	     (auth-headers auth-token)
+	     (reg-info-to-alist reg-info)))
+
+
+;;; channel
+
+;; :TODO optional activity UsersOnly
+(defun channels-add-all (url auth-token roomid &optional active-only-p)
+  (let ((alist (list (cons :roomID roomid)))
+	(ret nil))
+    (if active-only-p
+	(push (cons :activeUsersOnly "true") alist))
+    (post-json (concat url "/api/v1/channels.addAll")
+		  (auth-headers auth-token)
+		  alist)))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
