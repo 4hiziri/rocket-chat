@@ -626,5 +626,27 @@ PASSWORD - user's password"
 			      (cons :topic topic)))))
     ret))
 
+;; chat
+(defun chat-delete (url auth-token roomid msgid &optional as-user)
+  (let ((ret (post-json (concat url "/api/v1/chat.delete")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :msgId msgid)
+			      (if as-user
+				  (cons :asUser "true")
+				(cons :asUser "false"))))))
+    ret))
+
+;; :TODO def struct
+;; (defun chat-post-msg n)
+
+(defun chat-update (url auth-token roomid msgid text)
+  (let ((ret (post-json (concat url "/api/v1/chat.update")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :msgId msgid)
+			      (cons :text text)))))
+    ret))
+
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
