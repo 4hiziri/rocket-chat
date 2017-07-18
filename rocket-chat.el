@@ -422,5 +422,209 @@ PASSWORD - user's password"
 			(list (cons :roomId roomid)))))
     ret))
 
+;; group
+
+(defun groups-add-all (url auth-token roomid &optional active-only-p)
+  (let ((alist (list (cons :roomID roomid)))
+	(ret nil))
+    (if active-only-p
+	(push (cons :activeUsersOnly "true") alist))
+    (post-json (concat url "/api/v1/groups.addAll")
+	       (auth-headers auth-token)
+	       alist)))
+
+;; :TODO test
+(defun groups-add-moderator (url auth-token roomid userid)  
+  (let ((ret (post-json (concat url "/api/v1/groups.addModerator")
+		(auth-headers auth-token)
+		(list (cons :roomId roomid)
+		      (cons :userId userid)))))
+    (assoc-val 'success ret)))
+
+;; :TODO test
+(defun groups-add-owner (url auth-token roomid userid)
+  (let ((ret (post-json (cancat url "/api/v1/groups.addOwner")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    (assoc-val 'success ret)))
+
+(defun groups-archive (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/groups.archive")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    (assoc-val 'success ret)))
+
+;; :TODO time-converter
+;; (defun groups-clean-history (url auth-token roomid start end &optional inclusive))
+
+(defun groups-close (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/groups.close")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    (assoc-val 'success ret)))
+
+;; :TODO add members
+;; :TODO create channel struct
+(defun groups-create (url auth-token room-name &optional members)
+  (let ((ret (post-json (concat url "/api/v1/groups.create")
+			(auth-headers auth-token)
+			(list (cons :name room-name)))))
+    ret))
+
+(defun groups-get-integrations (url auth-token roomid)
+  (let ((ret (get-json (concat url "/api/v1/groups.getIntegrations")
+		       (auth-headers auth-token)
+		       (list (cons "roomId" roomid)))))
+    ret))
+
+;; :TODO make struct
+;; (defun groups-history (url auth-toke ))
+
+;; :TODO channel-struct
+(defun groups-info (url auth-token roomid &optional roomid-p)
+  (let ((ret (get-json (concat url "/api/v1/groups.info")
+		       (auth-headers auth-token)
+		       (list (if roomid-p
+				 (cons "roomId" roomid)
+			       (cons "roomName" roomid))))))
+    ret))
+
+(defun groups-invite (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/groups.invite")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun groups-kick (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/groups.kick")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun groups-leave (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/groups.leave")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    ret))
+
+(defun groups-list (url auth-token)
+  (let ((ret (get-json (concat url "/api/v1/groups.list")
+		       (auth-headers auth-token)
+		       nil)))
+    ret))
+
+(defun groups-open (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/groups.open")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    ret))
+
+(defun groups-remove-moderator (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/groups.removeModerator")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun groups-remove-owner (url auth-token roomid userid)
+  (let ((ret (post-json (concat url "/api/v1/groups.removeOwner")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :userId userid)))))
+    ret))
+
+(defun groups-rename (url auth-token roomid roomname)
+  (let ((ret (post-json (concat url "/api/v1/groups.rename")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :name roomname)))))
+    ret))
+
+(defun groups-set-description (url auth-token roomid description)
+  (let ((ret (post-json (concat url "/api/v1/groups.setDescription")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :description description)))))
+    ret))
+
+(defun groups-set-purpose (url auth-token roomid purpose)
+  (let ((ret (post-json (concat url "/api/v1/groups.setPurpose")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :purpose purpose)))))
+    ret))
+
+(defun groups-set-read-only (url auth-token roomid readonly)
+  (let ((ret (post-json (concat url "/api/v1/groups.setPurpose")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :readOnly (if readonly "true" "false"))))))
+    ret))
+
+(defun groups-set-topic (url auth-token roomid topic)
+  (let ((ret (post-json (concat url "/api/v1/groups.setTopic")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :topic topic)))))
+    ret))
+
+;; type-> c or p
+(defun groups-set-type (url auth-token roomid type)
+  (let ((ret (post-json (concat url "/api/v1/groups.setType")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :type type)))))
+    ret))
+
+(defun groups-unarchive (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/groups.unarchive")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    ret))
+
+;; Im
+
+(defun im-close (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/im.close")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    (assoc-val 'success ret)))
+
+;; (defun im-history (url auth-toke ))
+
+(defun im-list-everyone (url auth-token)
+  (let ((ret (get-json (concat url "/api/v1/im.list.everyone")
+		       (auth-headers auth-token)
+		       nil)))
+    ret))
+
+(defun im-list (url auth-token)
+  (let ((ret (get-json (concat url "/api/v1/im.list")
+		       (auth-headers auth-token)
+		       nil)))
+    ret))
+
+(defun im-messages-others (url auth-token roomid)
+  (let ((ret (get-json (concat url "/api/v1/im.messages.others")
+		       (auth-headers auth-token)
+		       (list (cons "roomId" roomid)))))
+    ret))
+
+(defun im-open (url auth-token roomid)
+  (let ((ret (post-json (concat url "/api/v1/im.open")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    ret))
+
+(defun im-set-topic (url auth-token roomid topic)
+  (let ((ret (post-json (concat url "/api/v1/im.setTopic")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)
+			      (cons :topic topic)))))
+    ret))
+
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
