@@ -7,8 +7,6 @@
 (require 'json)
 (require 'cl-lib)
 
-(setq url "https://rc.net.itc.nagoya-u.ac.jp")
-
 (defstruct auth-token
   (user-id nil)
   (token nil))
@@ -88,29 +86,25 @@
     (push `(:customFields ,(reg-info-customFields reg-info)) ret)
     ret))
 
-;; api
+;;; struct
+
+
+;;; api
 (defun info (url)
   "URL - server url.
 This function return server-info"
-  (let ((ret nil))
-    (request (url-concat url "/api/v1/info")
-	     :parser 'json-read
-	     :success (exec-form (setq ret data))
-	     :sync t)
-    ret))
+  (let ((ret (get-json (url-concat url "/api/v1/info") nil nil)))
+    (if (assoc-val 'success ret)
+	(list (assoc 'info ret) (assoc 'commit ret)))))
 
 (defun login (url username password)
   "URL - server url.
 USERNAME - registered username
 PASSWORD - user's password"
-  (let ((ret nil))
-    (request (url-concat url "/api/v1/login")
-	     :type "POST"
-	     :data `(("username" . ,username)
-		     ("password" . ,password))
-	     :parser 'json-read
-	     :success (exec-form (setq ret data))
-	     :sync t)
+  (let ((ret (post-json (url-concat url "/api/v1/login")
+			nil
+			`(("username" . ,username)
+			  ("password" . ,password)))))
     (if (string= (assoc-val 'status ret) "success")
 	(let ((info (assoc-val 'data ret)))
 	  (make-auth-token :user-id (assoc-val 'userId info)
@@ -119,12 +113,9 @@ PASSWORD - user's password"
 
 (defun logout (url auth-token)
   "This logout from URL, need AUTH-TOKEN."
-  (let ((ret nil))
-    (request (url-concat url "/api/v1/logout")
-	     :parser 'json-read
-	     :headers (auth-headers auth-token)
-	     :success (exec-form (setq ret data))
-	     :sync t)
+  (let ((ret (get-json (url-concat url "/api/v1/logout")
+		       (auth-headers auth-token)
+		       nil)))
     (if (string= (assoc-val 'status ret) "success")
 	(let ((data (assoc-val 'data ret)))
 	  (assoc-val 'message data))
@@ -647,6 +638,51 @@ PASSWORD - user's password"
 			      (cons :msgId msgid)
 			      (cons :text text)))))
     ret))
+
+;; setting
+(defun setting-get (url auth-token id)
+  (get-json (concat url "/api/v1/settings/" id)
+	    (auth-headers auth-token)
+	    nil))
+
+(defun setting-update (url auth-token id value)
+  (post-json (concat url "/api/v1/settings/" id)
+	     (auth-headers auth-token)
+	     (list (cons id value))))
+
+;; integration
+;; :TODO def struct
+;; (defun integrations-create (url auth-token ))
+
+(defun integrations-list (url auth-token)
+  (get-json (concat url "/api/v1/integrations.list")
+	    (auth-headers auth-token)
+	    nil))
+
+(defun integrations-remove (url auth-token type id)
+  (post-json (concat url "/api/v1/integrations.list")
+	     (auth-headers auth-token)
+	     (list (cons :type type)
+		   (cons :integrationId id))))
+
+;; livechat
+(defun livechat-list-department (url auth-token)
+  (get-json (concat url "/api/v1/livechat/department")
+	    (auth-headers auth-token)
+	    nil))
+
+;; :TODO research
+;; (defun livechat-register-department (url auth-token ))
+
+(defun livechat-sms-incoming (url service)
+  (post-json (concat url "/api/v1/livechat/sms-incoming/" service)
+	     nil
+	     nil))
+
+(defun livechat-users (url auth-token type)
+  (get-json (concat url "/api/v1/livechat/users/" type)
+	    (auth-headers auth-token)
+	    nil))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
