@@ -7,6 +7,10 @@
 (require 'json)
 (require 'cl-lib)
 
+(defun assoc-val (key alist)
+  "This return val of KEY from ALIST."
+  (rest (assoc key alist)))
+
 (defstruct auth-token
   (user-id nil)
   (token nil))
@@ -25,9 +29,27 @@
   (customFields "undefined") ;; {field : value}
   )
 
-(defun assoc-val (key alist)
-  "This return val of KEY from ALIST."
-  (cdr (assoc key alist)))
+(defstruct channel
+  id
+  time-stamp
+  _t
+  name
+  usernames
+  msgs
+  default
+  update-time
+  lm)
+
+(defun json-channel (json)
+  (make-channel :id (assoc-val '_id json)
+		:time-stamp (assoc 'ts json) ;; :TODO convert time
+		:t (assoc 't json)
+		:name (assoc 'name json)
+		:usernames (assoc 'usernames json)
+		:msgs (assoc 'msgs json)
+		:default (assoc 'default json)
+		:update-time (assoc '_updatedAt json)
+		:lm (assoc 'lm json)))
 
 (defun url-concat (&rest seq)
   (apply #'concat seq))
@@ -297,13 +319,14 @@ PASSWORD - user's password"
 ;; (defun channels-history (url auth-toke ))
 
 ;; :TODO channel-struct
-(defun channels-info (url auth-token roomid &optional roomid-p)
+(defun channels-info (url auth-token room-name &optional roomid-p)
   (let ((ret (get-json (concat url "/api/v1/channels.info")
 		       (auth-headers auth-token)
 		       (list (if roomid-p
-				 (cons "roomId" roomid)
-			       (cons "roomName" roomid))))))
-    ret))
+				 (cons "roomId" room-name)
+			       (cons "roomName" room-name))))))
+    (when (assoc-val 'success ret)
+      (json-channel (assoc-val 'channel ret)))))
 
 (defun channels-invite (url auth-token roomid userid)
   (let ((ret (post-json (concat url "/api/v1/channels.invite")
@@ -335,7 +358,7 @@ PASSWORD - user's password"
   (let ((ret (get-json (concat url "/api/v1/channels.list")
 		       (auth-headers auth-token)
 		       nil)))
-    ret))
+    ret)) ;; map
 
 (defun channels-open (url auth-token roomid)
   (let ((ret (post-json (concat url "/api/v1/channels.open")
@@ -683,6 +706,21 @@ PASSWORD - user's password"
   (get-json (concat url "/api/v1/livechat/users/" type)
 	    (auth-headers auth-token)
 	    nil))
+
+;;;
+(defvar token nil)
+(defvar server nil)
+
+(defun login-to-server ()
+  "This make you login to URL."
+  (let ((url (read-from-minibuffer "url: "))
+	(user-name (read-from-minibuffer "user: "))
+	(pass (read-passwd "password: ")))
+    (setf server url)
+    (setf token (login url user-name pass))))
+
+(defun logout-from-server ()
+  (logout server token))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
