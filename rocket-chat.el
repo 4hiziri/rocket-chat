@@ -42,14 +42,14 @@
 
 (defun json-channel (json)
   (make-channel :id (assoc-val '_id json)
-		:time-stamp (assoc 'ts json) ;; :TODO convert time
-		:t (assoc 't json)
-		:name (assoc 'name json)
-		:usernames (assoc 'usernames json)
-		:msgs (assoc 'msgs json)
-		:default (assoc 'default json)
-		:update-time (assoc '_updatedAt json)
-		:lm (assoc 'lm json)))
+		:time-stamp (assoc-val 'ts json) ;; :TODO convert time
+		:t (assoc-val 't json)
+		:name (assoc-val 'name json)
+		:usernames (assoc-val 'usernames json)
+		:msgs (assoc-val 'msgs json)
+		:default (assoc-val 'default json)
+		:update-time (assoc-val '_updatedAt json)
+		:lm (assoc-val 'lm json)))
 
 (defun url-concat (&rest seq)
   (apply #'concat seq))
@@ -152,8 +152,6 @@ PASSWORD - user's password"
 	     :success (exec-form (setq ret data))
 	     :sync t)
     ret))
-
-(me test-url test)
 
 ;; need test
 ;; launch server
@@ -358,7 +356,8 @@ PASSWORD - user's password"
   (let ((ret (get-json (concat url "/api/v1/channels.list")
 		       (auth-headers auth-token)
 		       nil)))
-    ret)) ;; map
+    (when (assoc-val 'success ret)
+      (map 'list #'json-channel (assoc-val 'channels ret)))))
 
 (defun channels-open (url auth-token roomid)
   (let ((ret (post-json (concat url "/api/v1/channels.open")
@@ -721,6 +720,13 @@ PASSWORD - user's password"
 
 (defun logout-from-server ()
   (logout server token))
+
+(defun show-channel-list ()
+  (let ((buf (get-buffer-create "*rc-test*"))
+	(chs (channels-list server token)))
+    (with-current-buffer buf
+      (erase-buffer)
+      (mapcan (lambda (x) (insert (channel-name x) "\n")) chs))))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
