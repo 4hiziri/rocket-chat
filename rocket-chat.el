@@ -127,11 +127,10 @@ PASSWORD - user's password"
 			nil
 			`(("username" . ,username)
 			  ("password" . ,password)))))
-    (if (string= (assoc-val 'status ret) "success")
-	(let ((info (assoc-val 'data ret)))
-	  (make-auth-token :user-id (assoc-val 'userId info)
-			   :token (assoc-val 'authToken info)))
-      nil)))
+    (when (string= (assoc-val 'status ret) "success")
+      (let ((info (assoc-val 'data ret)))
+	(make-auth-token :user-id (assoc-val 'userId info)
+			 :token (assoc-val 'authToken info))))))
 
 (defun logout (url auth-token)
   "This logout from URL, need AUTH-TOKEN."
@@ -230,7 +229,7 @@ PASSWORD - user's password"
 
 ;; :TODO optional secretURL
 (defun users-register (url reg-info)
-  (flet ((alist (reg-info)
+  (cl-flet ((alist (reg-info)
 		(list (cons :email (reg-info-email reg-info))
 		      (cons :pass (reg-info-password reg-info))
 		      (cons :name (reg-info-name reg-info)))))
@@ -314,7 +313,12 @@ PASSWORD - user's password"
     ret))
 
 ;; :TODO make struct
-;; (defun channels-history (url auth-toke ))
+(defun channels-history (url auth-token roomid)
+  (let ((ret (get-json (concat url "/api/v1/channels.history")
+		       (auth-headers auth-token)
+		       (list (cons "roomId" roomid)))))
+    (when (assoc-val 'success ret)
+      (assoc-val 'messages ret))))
 
 ;; :TODO channel-struct
 (defun channels-info (url auth-token room-name &optional roomid-p)
@@ -651,7 +655,14 @@ PASSWORD - user's password"
     ret))
 
 ;; :TODO def struct
-;; (defun chat-post-msg n)
+(defun chat-post-msg (url auth-token channel text)
+  (let ((ret (post-json (concat url "/api/v1/chat.postMessage")
+			(auth-headers auth-token)
+			(list (cons :roomId (channel-id channel))
+			      (cons :channel (channel-name channel))
+			      (cons :text text)))))
+    (when (assoc-val 'success ret)
+      (assoc-val 'ts ret))))
 
 (defun chat-update (url auth-token roomid msgid text)
   (let ((ret (post-json (concat url "/api/v1/chat.update")
@@ -709,24 +720,72 @@ PASSWORD - user's password"
 ;;;
 (defvar token nil)
 (defvar server nil)
+(defvar channel nil)
 
 (defun login-to-server ()
   "This make you login to URL."
+  (interactive)
   (let ((url (read-from-minibuffer "url: "))
 	(user-name (read-from-minibuffer "user: "))
 	(pass (read-passwd "password: ")))
     (setf server url)
-    (setf token (login url user-name pass))))
+    (if (setf token (login url user-name pass))	
+	"success"
+      "failed")))
 
 (defun logout-from-server ()
-  (logout server token))
+  (let ((msg (logout server token)))
+    (when msg
+      (setf token nil server nil))
+    msg))
 
-(defun show-channels-buffer ()
+
+(defun show-channels-to-buffer ()
+  (interactive)
+
   (let ((buf (get-buffer-create "*rc-test*"))
 	(chs (channels-list server token)))
     (with-current-buffer buf
       (erase-buffer)
-      (mapcan (lambda (x) (insert (channel-name x) "\n")) chs))))
+      (mapcan (lambda (x)
+		(insert-text-button (channel-name x) 'channel x)
+		(insert "\n"))
+	      chs))))
+
+(defun set-msg-to-buffer (msgs)
+  (erase-buffer)
+  (map 'list
+       (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
+			   "> "
+			   (decode-coding-string (assoc-val 'msg x) 'utf-8)
+			   "\n"))
+       (reverse msgs)))
+
+(setf test (channels-history server token "GENERAL"))
+
+
+(channels-history server token "GENERAL")
+
+(defun show-channel ()
+  (interactive)  
+  (let* ((ch (get-text-property (point) 'channel))
+	 (msgs (channels-history server token (channel-id ch))))   
+    (when msgs
+      (progn
+	(setf channel ch)
+	(set-msg-to-buffer msgs)))))
+
+(defun post-text ()
+  (interactive)
+  (let ((text (read-from-minibuffer "> ")))
+    (chat-post-msg server token channel text)))
+
+(defun update-channel ()
+  (interactive)
+  (let ((msgs (channels-history server token (channel-id channel))))
+    (when msgs
+      (erase-buffer)
+      (set-msg-to-buffer msgs))))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
