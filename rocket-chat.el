@@ -721,7 +721,7 @@ PASSWORD - user's password"
 (defun logout-from-server ()
   (logout server token))
 
-(defun show-channel-list ()
+(defun show-channels-buffer ()
   (let ((buf (get-buffer-create "*rc-test*"))
 	(chs (channels-list server token)))
     (with-current-buffer buf
