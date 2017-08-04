@@ -753,8 +753,14 @@ PASSWORD - user's password"
 (defun set-msg-to-buffer (msgs)
   (erase-buffer)
   (map 'list
-       (lambda (x) (insert (decode-coding-string (assoc-val 'msg x) 'utf-8) "\n"))
+       (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
+			   "> "
+			   (decode-coding-string (assoc-val 'msg x) 'utf-8)
+			   "\n"))
        (reverse msgs)))
+
+(setf test (channels-history server token "GENERAL"))
+
 
 (channels-history server token "GENERAL")
 
