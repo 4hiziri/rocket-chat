@@ -718,12 +718,31 @@ PASSWORD - user's password"
 	    nil))
 
 ;;;
-(defvar token nil)
-(defvar server nil)
-(defvar channel nil)
+(defgroup rocket-chat nil
+  "Major mode for chatting on rocket-chat"
+  :prefix "rc-"
+  :group 'applications
+  :link '(url-link :tag "Github" "https://github.com/4hiziri/rocket-chat"))
 
-(defun login-to-server ()
-  "This make you login to URL."
+(defcustom server nil
+  "Default accessing Server's url."
+  :type 'sexp
+  :group 'rocket-chat)
+
+(defcustom rocket-chat-mode-hook nil
+  "Hook run after `rocket-chat-mode` setup is finished."
+  :group 'rocket-chat
+  :type 'hook)
+
+(defvar rocket-chat-mode-map) ;; :TODO
+(defvar rocket-chat-mode-abbrev-table nil) ;; :TODO research
+;; :TODO syntax-table?
+(define-abbrev-table 'rocket-chat-mode-abbrev-table ())
+(defvar channel nil)
+(defvar token nil)
+
+(defun rocket-chat ()
+  "This allow you to login to URL."
   (interactive)
   (let ((url (read-from-minibuffer "url: "))
 	(user-name (read-from-minibuffer "user: "))
@@ -742,7 +761,6 @@ PASSWORD - user's password"
 
 (defun show-channels-to-buffer ()
   (interactive)
-
   (let ((buf (get-buffer-create "*rc-test*"))
 	(chs (channels-list server token)))
     (with-current-buffer buf
@@ -763,11 +781,10 @@ PASSWORD - user's password"
 
 (setf test (channels-history server token "GENERAL"))
 
-
 (channels-history server token "GENERAL")
 
 (defun show-channel ()
-  (interactive)  
+  (interactive)
   (let* ((ch (get-text-property (point) 'channel))
 	 (msgs (channels-history server token (channel-id ch))))   
     (when msgs
@@ -786,6 +803,16 @@ PASSWORD - user's password"
     (when msgs
       (erase-buffer)
       (set-msg-to-buffer msgs))))
+
+(defun rocket-chat-mode ()
+  "Major mode for Rocket.chat."
+  (kill-all-local-variables
+   (use-local-map rocket-chat-mode-map)
+   (setq mode-name "Rocket.chat"
+	 major-mode 'rocket-chat-mode
+	 local-addrev-table rocket-chat-mode-abbrev-table)
+					;(set-syntax-table syntax-table)
+   (run-hooks 'rocket-chat-mode-hook)))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
