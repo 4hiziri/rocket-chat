@@ -724,30 +724,61 @@ PASSWORD - user's password"
   :group 'applications
   :link '(url-link :tag "Github" "https://github.com/4hiziri/rocket-chat"))
 
-(defcustom server nil
-  "Default accessing Server's url."
-  :type 'sexp
-  :group 'rocket-chat)
-
 (defcustom rocket-chat-mode-hook nil
   "Hook run after `rocket-chat-mode` setup is finished."
   :group 'rocket-chat
   :type 'hook)
 
+(defcustom rc-default-server nil
+  "Default accessing Server's url."
+  :type 'sexp
+  :group 'rocket-chat)
+
+(defcustom rc-default-username nil
+  "Default user name."
+  :type 'sexp
+  :group 'rocket-chat)
+
 (defvar rocket-chat-mode-map) ;; :TODO
 (defvar rocket-chat-mode-abbrev-table nil) ;; :TODO research
 ;; :TODO syntax-table?
 (define-abbrev-table 'rocket-chat-mode-abbrev-table ())
-(defvar channel nil)
-(defvar token nil)
+(defvar rc-channel nil)
+(defvar rc-token nil)
+(defvar rc-server)
+(defvar rc-username)
 
-(defun rocket-chat ()
+(defun rc-server (&optional url)
+  "Return a Rocket.chat URL.
+
+This tries to find none nil value.
+
+- URL ARGS
+- The `rc-server` option
+- The `rc-default-server` var"
+  (or url
+      rc-server
+      rc-default-server))
+
+(defun rc-username (&optional username)
+  "Return a Rocket.chat username.
+
+This tries to find none nil value.
+
+- USERNAME ARGS
+- The `rc-username` option
+- The `rc-default-username` var"
+  (or username
+      rc-username
+      rc-default-username))
+
+(cl-defun rocket-chat (&key (url nil) (user-name) password)
   "This allow you to login to URL."
   (interactive)
   (let ((url (read-from-minibuffer "url: "))
 	(user-name (read-from-minibuffer "user: "))
 	(pass (read-passwd "password: ")))
-    (setf server url)
+    (setf rc-server url)
     (if (setf token (login url user-name pass))	
 	"success"
       "failed")))
@@ -757,7 +788,6 @@ PASSWORD - user's password"
     (when msg
       (setf token nil server nil))
     msg))
-
 
 (defun show-channels-to-buffer ()
   (interactive)
@@ -778,10 +808,6 @@ PASSWORD - user's password"
 			   (decode-coding-string (assoc-val 'msg x) 'utf-8)
 			   "\n"))
        (reverse msgs)))
-
-(setf test (channels-history server token "GENERAL"))
-
-(channels-history server token "GENERAL")
 
 (defun show-channel ()
   (interactive)
