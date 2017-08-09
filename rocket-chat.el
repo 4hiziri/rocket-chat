@@ -787,7 +787,6 @@ This prefer default value than input."
   (let ((server (read-from-minibuffer "URL: " (rc-get-server)))
 	(user (read-from-minibuffer "USER: " (rc-get-username)))
 	(pass (read-passwd "PASSWORD: ")));; :TODO history
-    (message "suc")
     (list :server server :username user :password pass)))
 
 (defun rc-login (server username password)
@@ -804,6 +803,8 @@ PASSWORD - login password"
   "This allow you to login to URL."
   (interactive (rc-get-input-args))
   (rc-login server username password)
+  (pop-to-buffer (get-buffer-create "*rc-test*"))
+  (goto-char (point-min))
   (rocket-chat-mode))
 
 (defun rc-logout ()
@@ -824,8 +825,7 @@ rc-current-session - Infomation of logined server"
 Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
-  (let ((buf (get-buffer-create "*rc-test*"))
-	(chs (channels-list (rc-session-server rc-current-session)
+  (let ((chs (channels-list (rc-session-server rc-current-session)
 			    (rc-session-token rc-current-session))))
     (with-current-buffer buf
       (erase-buffer)
@@ -892,7 +892,6 @@ rc-current-session - Infomation of logined server"
 	major-mode 'rocket-chat-mode
 	local-addrev-table rocket-chat-mode-abbrev-table)
 	;;(set-syntax-table syntax-table)
-
   (run-hooks 'rocket-chat-mode-hook))
 
 (provide 'rocket-chat)
