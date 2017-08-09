@@ -127,7 +127,7 @@ PASSWORD - user's password"
 			nil
 			`(("username" . ,username)
 			  ("password" . ,password)))))
-    (when (string= (assoc-val 'status ret) "success")
+    (when (and ret (string= (assoc-val 'status ret) "success"))
       (let ((info (assoc-val 'data ret)))
 	(make-auth-token :user-id (assoc-val 'userId info)
 			 :token (assoc-val 'authToken info))))))
@@ -796,16 +796,24 @@ SERVER - this will accessed by user
 USERNAME - login user name
 PASSWORD - login password"
   (let ((token (login server username password)))
-    (setf rc-current-session (make-rc-session :server server :username username :token token))
-    (message (if token "Successed!" "Failed.."))))
+    (when token (setf rc-current-session
+		      (make-rc-session :server server :username username :token token)))))
 
 (defun* rocket-chat (&key server username password)
   "This allow you to login to URL."
   (interactive (rc-get-input-args))
   (rc-login server username password)
-  (pop-to-buffer (get-buffer-create "*rc-test*"))
-  (goto-char (point-min))
-  (rocket-chat-mode))
+  (flet ((success ()
+		  (pop-to-buffer (get-buffer-create "*rc-test*"))
+		  (goto-char (point-min))
+		  (rocket-chat-mode)
+		  (message "Successed!"))
+	 (fail ()
+	       (setf rc-current-session nil) ;; :TODO clear state function needed
+	       (message "Failed..")))
+    (if (rc-session-token rc-current-session)
+	(success)
+      (fail))))
 
 (defun rc-logout ()
   "Logout from server.
@@ -817,9 +825,9 @@ rc-current-session - Infomation of logined server"
 		     (rc-session-token rc-current-session))))
     (when msg
       (setf rc-current-session nil))
-    (message msg)))
+    (insert msg)))
 
-(defun rc-show-channels-to-buffer ()
+(defun rc-show-channels ()
   "Make buffer and write channel-list to that buffer.
 
 Channel-list is text-button.
@@ -827,12 +835,11 @@ rc-current-session - Infomation of logined server"
   (interactive)
   (let ((chs (channels-list (rc-session-server rc-current-session)
 			    (rc-session-token rc-current-session))))
-    (with-current-buffer buf
-      (erase-buffer)
-      (mapcan (lambda (x) ;; consider make-button
-		(insert-text-button (channel-name x) 'channel x)
-		(insert "\n"))
-	      chs))))
+    (erase-buffer)
+    (mapcan (lambda (x) ;; consider make-button
+	      (insert-text-button (channel-name x) 'channel x)
+	      (insert "\n"))
+	    chs)))
 
 (defun rc-set-msg-to-buffer (msgs)
   "Write MSGS to buffer.
@@ -861,7 +868,7 @@ rc-current-session - Infomation of logined server"
       (setf (rc-session-channel rc-current-session) ch)
       (rc-set-msg-to-buffer msgs))))
 
-(defun rc-post-text ()
+(defun rc-post ()
   "Send text to channel on server.
 
 rc-current-session - Infomation of logined server"
