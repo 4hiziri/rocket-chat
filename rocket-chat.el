@@ -717,7 +717,8 @@ PASSWORD - user's password"
 	    (auth-headers auth-token)
 	    nil))
 
-;;;
+;;; application
+
 (defgroup rocket-chat nil
   "Major mode for chatting on rocket-chat"
   :prefix "rc-"
@@ -739,14 +740,23 @@ PASSWORD - user's password"
   :type 'sexp
   :group 'rocket-chat)
 
-(defvar rocket-chat-mode-map) ;; :TODO
-(defvar rocket-chat-mode-abbrev-table nil) ;; :TODO research
+;; :TODO
+(defvar rocket-chat-mode-map nil
+  "Mode map for rocket-chat.")
+;; :TODO research
+(defvar rocket-chat-mode-abbrev-table nil
+  "WTHIT?")
 ;; :TODO syntax-table?
 (define-abbrev-table 'rocket-chat-mode-abbrev-table ())
-(defvar rc-channel nil)
-(defvar rc-token nil)
-(defvar rc-server)
-(defvar rc-username)
+
+(defstruct rc-session
+  "Information of login session."
+  server
+  channel
+  username
+  token)
+(defvar rc-current-session nil
+  "Information of current login session.")
 
 (defun rc-server (&optional url)
   "Return a Rocket.chat URL.
@@ -757,7 +767,6 @@ This tries to find none nil value.
 - The `rc-server` option
 - The `rc-default-server` var"
   (or url
-      rc-server
       rc-default-server))
 
 (defun rc-username (&optional username)
@@ -769,76 +778,105 @@ This tries to find none nil value.
 - The `rc-username` option
 - The `rc-default-username` var"
   (or username
-      rc-username
       rc-default-username))
 
-(cl-defun rocket-chat (&key (url nil) (user-name) password)
+(cl-defun rocket-chat (&key (url nil) (username) pass)
   "This allow you to login to URL."
   (interactive)
-  (let ((url (read-from-minibuffer "url: "))
-	(user-name (read-from-minibuffer "user: "))
-	(pass (read-passwd "password: ")))
-    (setf rc-server url)
-    (if (setf token (login url user-name pass))	
-	"success"
-      "failed")))
+  (let* ((url (read-from-minibuffer "url: "))
+	 (username (read-from-minibuffer "user: "))
+	 (pass (read-passwd "password: "))
+	 (token (login url username pass)))
+    (setf rc-current-session (make-rc-session :server url :username username :token token))
+    (message (if token "Successed!" "Failed.."))))
 
 (defun logout-from-server ()
-  (let ((msg (logout server token)))
+  "Logout from server.
+
+If this success, logout message is printed on echo-area.
+rc-current-session - Infomation of logined server"
+  (let ((msg (logout (rc-session-server rc-current-session)
+		     (rc-session-token rc-current-session))))
     (when msg
-      (setf token nil server nil))
-    msg))
+      (setf rc-current-session nil))
+    (message msg)))
 
 (defun show-channels-to-buffer ()
+  "Make buffer and write channel-list to that buffer.
+
+Channel-list is text-button.
+rc-current-session - Infomation of logined server"
   (interactive)
   (let ((buf (get-buffer-create "*rc-test*"))
-	(chs (channels-list server token)))
+	(chs (channels-list (rc-session-server rc-current-session)
+			    (rc-session-token rc-current-session))))
     (with-current-buffer buf
       (erase-buffer)
-      (mapcan (lambda (x)
+      (mapcan (lambda (x) ;; consider make-button
 		(insert-text-button (channel-name x) 'channel x)
 		(insert "\n"))
 	      chs))))
 
 (defun set-msg-to-buffer (msgs)
+  "Write MSGS to buffer.
+
+This writes chat-message to buffer.
+MSGS - Rocket.chat's msg struct."
   (erase-buffer)
   (map 'list
        (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
 			   "> "
 			   (decode-coding-string (assoc-val 'msg x) 'utf-8)
 			   "\n"))
+       ;; Older order
        (reverse msgs)))
 
-(defun show-channel ()
+(defun show-channel-contents ()
+  "Write chats in channel to buffer.
+
+rc-current-session - Infomation of logined server"
   (interactive)
   (let* ((ch (get-text-property (point) 'channel))
-	 (msgs (channels-history server token (channel-id ch))))   
+	 (msgs (channels-history (rc-session-server rc-current-session)
+				 (rc-session-token rc-current-session)
+				 (channel-id ch))))
     (when msgs
-      (progn
-	(setf channel ch)
-	(set-msg-to-buffer msgs)))))
+      (setf (rc-session-channel rc-current-session) ch)
+      (set-msg-to-buffer msgs))))
 
 (defun post-text ()
+  "Send text to channel on server.
+
+rc-current-session - Infomation of logined server"
   (interactive)
   (let ((text (read-from-minibuffer "> ")))
-    (chat-post-msg server token channel text)))
+    (chat-post-msg (rc-session-server rc-current-session)
+		   (rc-session-token rc-current-session)
+		   (rc-session-channel rc-current-session)
+		   text)))
 
 (defun update-channel ()
+  "Update displayed channel contents.
+
+rc-current-session - Infomation of logined server"
   (interactive)
-  (let ((msgs (channels-history server token (channel-id channel))))
+  (let ((msgs (channels-history (rc-session-server rc-current-session)
+				(rc-session-token rc-current-session)
+				(channel-id (rc-session-channel rc-current-session)))))
     (when msgs
       (erase-buffer)
       (set-msg-to-buffer msgs))))
 
 (defun rocket-chat-mode ()
   "Major mode for Rocket.chat."
-  (kill-all-local-variables
-   (use-local-map rocket-chat-mode-map)
-   (setq mode-name "Rocket.chat"
-	 major-mode 'rocket-chat-mode
-	 local-addrev-table rocket-chat-mode-abbrev-table)
-					;(set-syntax-table syntax-table)
-   (run-hooks 'rocket-chat-mode-hook)))
+  (kill-all-local-variables)
+  (use-local-map rocket-chat-mode-map)
+  (setq mode-name "Rocket.chat"
+	major-mode 'rocket-chat-mode
+	local-addrev-table rocket-chat-mode-abbrev-table)
+	;;(set-syntax-table syntax-table)
+
+  (run-hooks 'rocket-chat-mode-hook))
 
 (provide 'rocket-chat)
 ;;; rocket-chat ends here
