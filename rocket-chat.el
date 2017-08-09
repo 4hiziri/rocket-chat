@@ -758,7 +758,7 @@ PASSWORD - user's password"
 (defvar rc-current-session nil
   "Information of current login session.")
 
-(defun rc-server (&optional url)
+(defun rc-get-server (&optional url)
   "Return a Rocket.chat URL.
 
 This tries to find none nil value.
@@ -769,7 +769,7 @@ This tries to find none nil value.
   (or url
       rc-default-server))
 
-(defun rc-username (&optional username)
+(defun rc-get-username (&optional username)
   "Return a Rocket.chat username.
 
 This tries to find none nil value.
@@ -780,28 +780,45 @@ This tries to find none nil value.
   (or username
       rc-default-username))
 
-(cl-defun rocket-chat (&key (url nil) (username) pass)
-  "This allow you to login to URL."
-  (interactive)
-  (let* ((url (read-from-minibuffer "url: "))
-	 (username (read-from-minibuffer "user: "))
-	 (pass (read-passwd "password: "))
-	 (token (login url username pass)))
-    (setf rc-current-session (make-rc-session :server url :username username :token token))
+(defun rc-get-input-args ()
+  "Get from minibuffer input.
+
+This prefer default value than input."
+  (let ((server (read-from-minibuffer "URL: " (rc-get-server)))
+	(user (read-from-minibuffer "USER: " (rc-get-username)))
+	(pass (read-passwd "PASSWORD: ")));; :TODO history
+    (message "suc")
+    (list :server server :username user :password pass)))
+
+(defun rc-login (server username password)
+  "Login to SERVER as USERNAME.
+
+SERVER - this will accessed by user
+USERNAME - login user name
+PASSWORD - login password"
+  (let ((token (login server username password)))
+    (setf rc-current-session (make-rc-session :server server :username username :token token))
     (message (if token "Successed!" "Failed.."))))
 
-(defun logout-from-server ()
+(defun* rocket-chat (&key server username password)
+  "This allow you to login to URL."
+  (interactive (rc-get-input-args))
+  (rc-login server username password)
+  (rocket-chat-mode))
+
+(defun rc-logout ()
   "Logout from server.
 
 If this success, logout message is printed on echo-area.
 rc-current-session - Infomation of logined server"
+  (interactive)
   (let ((msg (logout (rc-session-server rc-current-session)
 		     (rc-session-token rc-current-session))))
     (when msg
       (setf rc-current-session nil))
     (message msg)))
 
-(defun show-channels-to-buffer ()
+(defun rc-show-channels-to-buffer ()
   "Make buffer and write channel-list to that buffer.
 
 Channel-list is text-button.
@@ -817,7 +834,7 @@ rc-current-session - Infomation of logined server"
 		(insert "\n"))
 	      chs))))
 
-(defun set-msg-to-buffer (msgs)
+(defun rc-set-msg-to-buffer (msgs)
   "Write MSGS to buffer.
 
 This writes chat-message to buffer.
@@ -831,7 +848,7 @@ MSGS - Rocket.chat's msg struct."
        ;; Older order
        (reverse msgs)))
 
-(defun show-channel-contents ()
+(defun rc-show-channel-contents ()
   "Write chats in channel to buffer.
 
 rc-current-session - Infomation of logined server"
@@ -842,9 +859,9 @@ rc-current-session - Infomation of logined server"
 				 (channel-id ch))))
     (when msgs
       (setf (rc-session-channel rc-current-session) ch)
-      (set-msg-to-buffer msgs))))
+      (rc-set-msg-to-buffer msgs))))
 
-(defun post-text ()
+(defun rc-post-text ()
   "Send text to channel on server.
 
 rc-current-session - Infomation of logined server"
@@ -855,7 +872,7 @@ rc-current-session - Infomation of logined server"
 		   (rc-session-channel rc-current-session)
 		   text)))
 
-(defun update-channel ()
+(defun rc-update-channel ()
   "Update displayed channel contents.
 
 rc-current-session - Infomation of logined server"
