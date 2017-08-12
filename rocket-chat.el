@@ -812,11 +812,12 @@ PASSWORD - login password"
   "This allow you to login to URL."
   (interactive (rc-get-input-args))
   (rc-login server username password)
-  (flet ((success ()
+  (cl-flet ((success ()
 		  (pop-to-buffer (get-buffer-create "*rc-test*"))
 		  (goto-char (point-min))
-		  (rocket-chat-mode)
-		  (message "Successed!"))
+		  (rocket-chat-mode)		  
+		  (message "Successed!")
+		  (rc-show-channels))
 	 (fail ()
 	       (setf rc-current-session nil) ;; :TODO clear state function needed
 	       (message "Failed..")))
@@ -843,10 +844,17 @@ Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
   (let ((chs (channels-list (rc-session-server rc-current-session)
-			    (rc-session-token rc-current-session))))
+			    (rc-session-token rc-current-session)))
+	(buffer-read-only nil))
     (erase-buffer)
     (mapcan (lambda (x) ;; consider make-button
-	      (insert-text-button (channel-name x) 'channel x)
+	      (insert-text-button (channel-name x)
+				  'action (lambda (but)
+					    (rc-show-channel-contents
+					     (button-get but 'channel)))
+				  'follow-link t
+				  'help-echo "Join Channel and display."
+				  'channel x)
 	      (insert "\n"))
 	    chs)))
 
@@ -855,26 +863,26 @@ rc-current-session - Infomation of logined server"
 
 This writes chat-message to buffer.
 MSGS - Rocket.chat's msg struct."
-  (erase-buffer)
-  (map 'list
-       (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
-			   "> "
-			   (decode-coding-string (assoc-val 'msg x) 'utf-8)
-			   "\n"))
-       ;; Older order
-       (reverse msgs)))
+  (let ((buffer-read-only nil))
+    (erase-buffer)
+    (map 'list
+	 (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
+			     "> "
+			     (decode-coding-string (assoc-val 'msg x) 'utf-8)
+			     "\n"))
+	 ;; Older order
+	 (reverse msgs))))
 
-(defun rc-show-channel-contents ()
-  "Write chats in channel to buffer.
+(defun rc-show-channel-contents (channel)
+  "Write chats in CHANNEL to buffer.
 
+CHANNEL - chat room
 rc-current-session - Infomation of logined server"
-  (interactive)
-  (let* ((ch (get-text-property (point) 'channel))
-	 (msgs (channels-history (rc-session-server rc-current-session)
+  (let* ((msgs (channels-history (rc-session-server rc-current-session)
 				 (rc-session-token rc-current-session)
-				 (channel-id ch))))
+				 (channel-id channel))))
     (when msgs
-      (setf (rc-session-channel rc-current-session) ch)
+      (setf (rc-session-channel rc-current-session) channel)
       (rc-set-msg-to-buffer msgs))))
 
 (defun rc-post ()
@@ -906,6 +914,7 @@ rc-current-session - Infomation of logined server"
   (use-local-map rocket-chat-mode-map)
   (setq mode-name "Rocket.chat"
 	major-mode 'rocket-chat-mode
+	buffer-read-only t
 	local-addrev-table rocket-chat-mode-abbrev-table)
 	;;(set-syntax-table syntax-table)
   (run-hooks 'rocket-chat-mode-hook))
