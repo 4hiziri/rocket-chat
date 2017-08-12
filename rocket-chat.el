@@ -757,6 +757,15 @@ PASSWORD - user's password"
   token)
 (defvar rc-current-session nil
   "Information of current login session.")
+(make-variable-buffer-local 'rc-current-session)
+
+(defvar rc-insert-marker nil
+  "Marker of insert position.")
+(make-variable-buffer-local 'rc-insert-marker)
+
+(defvar rc-input-marker nil
+  "Inserted position.")
+(make-variable-buffer-local 'rc-input-marker)
 
 (defun rc-get-server (&optional url)
   "Return a Rocket.chat URL.
