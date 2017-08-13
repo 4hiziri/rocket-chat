@@ -759,6 +759,10 @@ PASSWORD - user's password"
   "Information of current login session.")
 (make-variable-buffer-local 'rc-current-session)
 
+(defvar rc-buffer
+  (get-buffer-create "rc-test")
+  "Buffer.")
+
 (defvar rc-insert-marker nil
   "Marker of insert position.")
 (make-variable-buffer-local 'rc-insert-marker)
@@ -805,25 +809,28 @@ SERVER - this will accessed by user
 USERNAME - login user name
 PASSWORD - login password"
   (let ((token (login server username password)))
-    (when token (setf rc-current-session
-		      (make-rc-session :server server :username username :token token)))))
+    (when token
+      (make-rc-session :server server :username username :token token))))
 
 (defun* rocket-chat (&key server username password)
   "This allow you to login to URL."
-  (interactive (rc-get-input-args))
-  (rc-login server username password)
-  (cl-flet ((success ()
-		  (pop-to-buffer (get-buffer-create "*rc-test*"))
-		  (goto-char (point-min))
-		  (rocket-chat-mode)		  
-		  (message "Successed!")
-		  (rc-show-channels))
-	 (fail ()
-	       (setf rc-current-session nil) ;; :TODO clear state function needed
-	       (message "Failed..")))
-    (if (rc-session-token rc-current-session)
-	(success)
-      (fail))))
+  (interactive (rc-get-input-args))  
+  (rocket-chat-mode)
+  (pop-to-buffer rc-buffer)
+  (with-current-buffer rc-buffer
+    (setq rc-current-session
+	  (rc-login server username password))
+    (cl-flet ((success ()	 
+		       (goto-char (point-min))		       
+		       (message "Successed!")			 
+		       (rc-show-channels))
+	      (fail ()
+		    (setq rc-current-session nil) ;; :TODO clear state function needed
+		    (kill-buffer rc-buffer)
+		    (message "Failed..")))
+      (if (rc-session-token rc-current-session)
+	  (success)
+	(fail)))))
 
 (defun rc-logout ()
   "Logout from server.
@@ -834,7 +841,7 @@ rc-current-session - Infomation of logined server"
   (let ((msg (logout (rc-session-server rc-current-session)
 		     (rc-session-token rc-current-session))))
     (when msg
-      (setf rc-current-session nil))
+      (setq rc-current-session nil))
     (insert msg)))
 
 (defun rc-show-channels ()
@@ -843,20 +850,21 @@ rc-current-session - Infomation of logined server"
 Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
-  (let ((chs (channels-list (rc-session-server rc-current-session)
-			    (rc-session-token rc-current-session)))
-	(buffer-read-only nil))
-    (erase-buffer)
-    (mapcan (lambda (x) ;; consider make-button
-	      (insert-text-button (channel-name x)
-				  'action (lambda (but)
-					    (rc-show-channel-contents
-					     (button-get but 'channel)))
-				  'follow-link t
-				  'help-echo "Join Channel and display."
-				  'channel x)
-	      (insert "\n"))
-	    chs)))
+  (with-current-buffer rc-buffer
+    (let ((chs (channels-list (rc-session-server rc-current-session)
+			      (rc-session-token rc-current-session)))
+	  (buffer-read-only nil))
+      (erase-buffer)    
+      (mapcan (lambda (x)
+		(insert-text-button (channel-name x)
+				    'action (lambda (but)
+					      (rc-show-channel-contents
+					       (button-get but 'channel)))
+				    'follow-link t
+				    'help-echo "Join Channel and display."
+				    'channel x)
+		(insert "\n"))
+	      chs))))
 
 (defun rc-set-msg-to-buffer (msgs)
   "Write MSGS to buffer.
