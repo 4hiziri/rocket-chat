@@ -871,15 +871,16 @@ rc-current-session - Infomation of logined server"
 
 This writes chat-message to buffer.
 MSGS - Rocket.chat's msg struct."
-  (let ((buffer-read-only nil))
-    (erase-buffer)
-    (map 'list
-	 (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
-			     "> "
-			     (decode-coding-string (assoc-val 'msg x) 'utf-8)
-			     "\n"))
-	 ;; Older order
-	 (reverse msgs))))
+  (with-current-buffer rc-buffer
+    (let ((buffer-read-only nil))
+      (erase-buffer)
+      (map 'list
+	   (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
+			       "> "
+			       (decode-coding-string (assoc-val 'msg x) 'utf-8)
+			       "\n"))
+	   ;; Older order
+	   (reverse msgs)))))
 
 (defun rc-show-channel-contents (channel)
   "Write chats in CHANNEL to buffer.
@@ -892,6 +893,13 @@ rc-current-session - Infomation of logined server"
     (when msgs
       (setf (rc-session-channel rc-current-session) channel)
       (rc-set-msg-to-buffer msgs))))
+
+;; :TODO make input prompt
+(defun rc-user-input ()
+  "User input area."
+  (buffer-substring-no-properties
+   rc-input-marker
+   (point-max)))
 
 (defun rc-post ()
   "Send text to channel on server.
