@@ -759,8 +759,11 @@ PASSWORD - user's password"
   "Information of current login session.")
 (make-variable-buffer-local 'rc-current-session)
 
+(defvar rc-buffer-name
+  "rc-test")
+
 (defvar rc-buffer
-  (get-buffer-create "rc-test")
+  (get-buffer-create rc-buffer-name)
   "Buffer.")
 
 (defvar rc-insert-marker nil
@@ -814,13 +817,15 @@ PASSWORD - login password"
 
 (defun* rocket-chat (&key server username password)
   "This allow you to login to URL."
-  (interactive (rc-get-input-args))  
+  (interactive (rc-get-input-args))
   (rocket-chat-mode)
+  (setf rc-buffer (get-buffer-create rc-buffer-name))
   (pop-to-buffer rc-buffer)
   (with-current-buffer rc-buffer
+    (add-hook 'pre-command-hook 'rc-set-marker-at-prompt)
     (setq rc-current-session
 	  (rc-login server username password))
-    (cl-flet ((success ()	 
+    (cl-flet ((success ()
 		       (goto-char (point-min))		       
 		       (message "Successed!")			 
 		       (rc-show-channels))
@@ -844,6 +849,16 @@ rc-current-session - Infomation of logined server"
       (setq rc-current-session nil))
     (insert msg)))
 
+(defun rc-set-marker-at-prompt ()
+  "If user is not at prompt when user inputs, set marker to prompt."
+  (when (and rc-input-marker
+	     (< (point) rc-input-marker)
+	     (eq 'self-insert-command this-command))
+    (message "SUC")
+    (deactivate-mark)
+    (push-mark)
+    (goto-char (point-max))))
+
 (defun rc-show-channels ()
   "Make buffer and write channel-list to that buffer.
 
@@ -853,56 +868,75 @@ rc-current-session - Infomation of logined server"
   (with-current-buffer rc-buffer
     (let ((chs (channels-list (rc-session-server rc-current-session)
 			      (rc-session-token rc-current-session)))
-	  (buffer-read-only nil))
-      (erase-buffer)    
+	  (buffer-read-only nil)
+	  (inhibit-read-only t))
+      (remove-text-properties (point-min) (point-max) '(read-only t))
+      (erase-buffer)
       (mapcan (lambda (x)
 		(insert-text-button (channel-name x)
 				    'action (lambda (but)
 					      (rc-show-channel-contents
 					       (button-get but 'channel)))
-				    'follow-link t
+				    'follow-link t		
 				    'help-echo "Join Channel and display."
 				    'channel x)
 		(insert "\n"))
-	      chs))))
+	      chs))
+    (setf buffer-read-only t)))
+
+(defun rc-insert-text (text)
+  "This insert TEXT to buffer as read-only.
+
+TEXT - text that is inserted"
+  (let ((length (length text))
+	(buffer-read-only nil))
+    (goto-char rc-insert-marker)    
+    (insert text)    
+    (set-marker rc-insert-marker (point) rc-buffer)))
 
 (defun rc-set-msg-to-buffer (msgs)
   "Write MSGS to buffer.
 
 This writes chat-message to buffer.
-MSGS - Rocket.chat's msg struct."
-  (with-current-buffer rc-buffer
-    (let ((buffer-read-only nil))
-      (erase-buffer)
-      (map 'list
-	   (lambda (x) (insert (assoc-val 'username (assoc-val 'u x))
-			       "> "
-			       (decode-coding-string (assoc-val 'msg x) 'utf-8)
-			       "\n"))
-	   ;; Older order
-	   (reverse msgs)))))
+MSGS - Rocket.chat's msg struct.
+`rc-buffer' - buffer for use by this."
+  (with-current-buffer rc-buffer    
+    (map 'list
+	 (lambda (x) (rc-insert-text (concat (assoc-val 'username (assoc-val 'u x))
+					     "> "
+					     (decode-coding-string (assoc-val 'msg x) 'utf-8)
+					     "\n")))
+	 (reverse msgs))))
 
 (defun rc-show-channel-contents (channel)
   "Write chats in CHANNEL to buffer.
 
 CHANNEL - chat room
-rc-current-session - Infomation of logined server"
-  (let* ((msgs (channels-history (rc-session-server rc-current-session)
-				 (rc-session-token rc-current-session)
-				 (channel-id channel))))
-    (when msgs
-      (setf (rc-session-channel rc-current-session) channel)
-      (rc-set-msg-to-buffer msgs))))
+`rc-current-session' - Infomation of logined server"
+  (with-current-buffer rc-buffer
+    (let* ((msgs (channels-history (rc-session-server rc-current-session)
+				   (rc-session-token rc-current-session)
+				   (channel-id channel)))
+	   (inhibit-read-only t))
+      (setf buffer-read-only nil)
+      (setf rc-insert-marker (make-marker))
+      (set-marker rc-insert-marker (point-min) rc-buffer)
+      (when msgs
+	(erase-buffer)
+	(setf (rc-session-channel rc-current-session) channel)
+	(rc-set-msg-to-buffer msgs)
+	(rc-insert-prompt)
+	(setf rc-input-marker (make-marker))
+	(set-marker rc-input-marker (point))
+	(add-text-properties (point-min) (point-max) '(front-sticky t rear-nonsticky t read-only t))))))
 
 (defun rc-insert-prompt (&optional prompt)
   "Insert input PROMPT to buffer."
   (with-current-buffer rc-buffer
-    (let ((prompt (or prompt "<"))
-	  (buffer-read-only nil))    
+    (let ((prompt (or prompt "<")))
       (goto-char (point-max))
       (forward-line 0)
-      (kill-line)
-      (insert prompt " "))))
+      (insert (concat prompt " ")))))
 
 ;; :TODO make input prompt
 (defun rc-user-input ()
@@ -927,12 +961,14 @@ rc-current-session - Infomation of logined server"
 
 rc-current-session - Infomation of logined server"
   (interactive)
-  (let ((msgs (channels-history (rc-session-server rc-current-session)
-				(rc-session-token rc-current-session)
-				(channel-id (rc-session-channel rc-current-session)))))
-    (when msgs
-      (erase-buffer)
-      (set-msg-to-buffer msgs))))
+  (with-current-buffer rc-buffer
+    (let ((msgs (channels-history (rc-session-server rc-current-session)
+				  (rc-session-token rc-current-session)
+				  (channel-id (rc-session-channel rc-current-session))))
+	  (buffer-read-only nil))
+      (when msgs
+	(erase-buffer)
+	(rc-set-msg-to-buffer msgs)))))
 
 (defun rocket-chat-mode ()
   "Major mode for Rocket.chat."
@@ -940,7 +976,6 @@ rc-current-session - Infomation of logined server"
   (use-local-map rocket-chat-mode-map)
   (setq mode-name "Rocket.chat"
 	major-mode 'rocket-chat-mode
-	buffer-read-only t
 	local-addrev-table rocket-chat-mode-abbrev-table)
 	;;(set-syntax-table syntax-table)
   (run-hooks 'rocket-chat-mode-hook))
