@@ -894,6 +894,16 @@ rc-current-session - Infomation of logined server"
       (setf (rc-session-channel rc-current-session) channel)
       (rc-set-msg-to-buffer msgs))))
 
+(defun rc-insert-prompt (&optional prompt)
+  "Insert input PROMPT to buffer."
+  (with-current-buffer rc-buffer
+    (let ((prompt (or prompt "<"))
+	  (buffer-read-only nil))    
+      (goto-char (point-max))
+      (forward-line 0)
+      (kill-line)
+      (insert prompt " "))))
+
 ;; :TODO make input prompt
 (defun rc-user-input ()
   "User input area."
