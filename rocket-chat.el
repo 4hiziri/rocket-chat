@@ -740,13 +740,18 @@ PASSWORD - user's password"
   :type 'sexp
   :group 'rocket-chat)
 
-;; :TODO
-(defvar rocket-chat-mode-map nil
-  "Mode map for rocket-chat.")
+(defvar rocket-chat-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-m" 'rc-post-line)
+    (define-key map "\C-c\C-f" 'rc-update-channel)
+    map)
+  "Keymap for rocket-chat-mode.")
+
 ;; :TODO research
-(defvar rocket-chat-mode-abbrev-table nil
-  "WTHIT?")
+;; unnecessary?
+(defvar rocket-chat-mode-abbrev-table nil)
 ;; :TODO syntax-table?
+;; unnecessary?
 (define-abbrev-table 'rocket-chat-mode-abbrev-table ())
 
 (defstruct rc-session
@@ -755,6 +760,7 @@ PASSWORD - user's password"
   channel
   username
   token)
+
 (defvar rc-current-session nil
   "Information of current login session.")
 (make-variable-buffer-local 'rc-current-session)
@@ -818,10 +824,10 @@ PASSWORD - login password"
 (defun* rocket-chat (&key server username password)
   "This allow you to login to URL."
   (interactive (rc-get-input-args))
-  (rocket-chat-mode)
   (setf rc-buffer (get-buffer-create rc-buffer-name))
   (pop-to-buffer rc-buffer)
   (with-current-buffer rc-buffer
+    (rocket-chat-mode)
     (add-hook 'pre-command-hook 'rc-set-marker-at-prompt)
     (setq rc-current-session
 	  (rc-login server username password))
@@ -891,7 +897,8 @@ TEXT - text that is inserted"
   (let ((length (length text))
 	(buffer-read-only nil))
     (goto-char rc-insert-marker)    
-    (insert text)    
+    (insert text)
+    (add-text-properties rc-insert-marker (point) '(front-sticky t rear-nonsticky t read-only t))
     (set-marker rc-insert-marker (point) rc-buffer)))
 
 (defun rc-set-msg-to-buffer (msgs)
@@ -908,6 +915,18 @@ MSGS - Rocket.chat's msg struct.
 					     "\n")))
 	 (reverse msgs))))
 
+(defun rc-insert-prompt (&optional prompt)
+  "Insert input PROMPT to buffer."
+  (with-current-buffer rc-buffer
+    (let ((prompt (or prompt "<"))
+	  (old-point nil))
+      (goto-char (point-max))
+      (forward-line 0)
+      (setf old-point (point))      
+      (insert (concat prompt " "))
+      (set-marker rc-input-marker (point))
+      (add-text-properties old-point (point) '(front-sticky t rear-nonsticky t read-only t)))))
+
 (defun rc-show-channel-contents (channel)
   "Write chats in CHANNEL to buffer.
 
@@ -920,55 +939,55 @@ CHANNEL - chat room
 	   (inhibit-read-only t))
       (setf buffer-read-only nil)
       (setf rc-insert-marker (make-marker))
+      (setf rc-input-marker (make-marker))
       (set-marker rc-insert-marker (point-min) rc-buffer)
       (when msgs
 	(erase-buffer)
 	(setf (rc-session-channel rc-current-session) channel)
 	(rc-set-msg-to-buffer msgs)
-	(rc-insert-prompt)
-	(setf rc-input-marker (make-marker))
-	(set-marker rc-input-marker (point))
-	(add-text-properties (point-min) (point-max) '(front-sticky t rear-nonsticky t read-only t))))))
+	(rc-insert-prompt)))))
 
-(defun rc-insert-prompt (&optional prompt)
-  "Insert input PROMPT to buffer."
-  (with-current-buffer rc-buffer
-    (let ((prompt (or prompt "<")))
-      (goto-char (point-max))
-      (forward-line 0)
-      (insert (concat prompt " ")))))
-
-;; :TODO make input prompt
-(defun rc-user-input ()
-  "User input area."
-  (buffer-substring-no-properties
-   rc-input-marker
-   (point-max)))
-
-(defun rc-post ()
-  "Send text to channel on server.
-
-rc-current-session - Infomation of logined server"
-  (interactive)
-  (let ((text (read-from-minibuffer "> ")))
-    (chat-post-msg (rc-session-server rc-current-session)
-		   (rc-session-token rc-current-session)
-		   (rc-session-channel rc-current-session)
-		   text)))
-
-(defun rc-update-channel ()
+;; :TODO enable to assign num of posts
+;; :TODO only add unread post.
+(defun rc-update-channel () 
   "Update displayed channel contents.
 
-rc-current-session - Infomation of logined server"
+`rc-current-session' - Infomation of logined server"
   (interactive)
   (with-current-buffer rc-buffer
     (let ((msgs (channels-history (rc-session-server rc-current-session)
 				  (rc-session-token rc-current-session)
-				  (channel-id (rc-session-channel rc-current-session))))
-	  (buffer-read-only nil))
+				  (channel-id (rc-session-channel rc-current-session))))	  
+	  (inhibit-read-only t))
       (when msgs
 	(erase-buffer)
-	(rc-set-msg-to-buffer msgs)))))
+	(rc-set-msg-to-buffer msgs)
+	(rc-insert-prompt)))))
+
+(defun rc-user-input ()
+  "This gets user input form input-area.
+
+`rc-input-marker' - beginning of input-area"
+  (buffer-substring-no-properties
+   rc-input-marker
+   (point-max)))
+
+(defun rc-post (text session)
+  "This sends TEXT channel on server.
+
+TEXT - Posted text
+SESSION - Infomation of logined server"
+  (chat-post-msg (rc-session-server session)
+		 (rc-session-token session)
+		 (rc-session-channel session)
+		 text))
+
+(defun rc-post-line ()
+  "This posts line at input-area to connected server."
+  (interactive)
+  (rc-post (rc-user-input) rc-current-session)
+  (delete-region rc-input-marker (point-max))
+  (rc-update-channel))
 
 (defun rocket-chat-mode ()
   "Major mode for Rocket.chat."
@@ -977,7 +996,7 @@ rc-current-session - Infomation of logined server"
   (setq mode-name "Rocket.chat"
 	major-mode 'rocket-chat-mode
 	local-addrev-table rocket-chat-mode-abbrev-table)
-	;;(set-syntax-table syntax-table)
+  ;;(set-syntax-table syntax-table)
   (run-hooks 'rocket-chat-mode-hook))
 
 (provide 'rocket-chat)
