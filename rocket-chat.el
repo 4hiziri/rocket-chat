@@ -780,6 +780,24 @@ PASSWORD - user's password"
   "Inserted position.")
 (make-variable-buffer-local 'rc-input-marker)
 
+;; faces
+;; why does not this work?
+(defgroup rc-faces nil
+  "Faces for Rocket.chat-mode"
+  :group 'rocket-chat)
+
+(defface rc-username-face '((t (:foreground "Red")))
+  "Face for username."
+  :group 'rc-faces)
+
+(defface rc-participant-face '((t (:foreground "Cyan")))
+  "Face for participant of channel."
+  :group 'rc-faces)
+
+(defface rc-prompt-face '((t (:background "Green")))
+  "Face for prompt."
+  :group 'rc-faces)
+
 (defun rc-get-server (&optional url)
   "Return a Rocket.chat URL.
 
@@ -860,7 +878,6 @@ rc-current-session - Infomation of logined server"
   (when (and rc-input-marker
 	     (< (point) rc-input-marker)
 	     (eq 'self-insert-command this-command))
-    (message "SUC")
     (deactivate-mark)
     (push-mark)
     (goto-char (point-max))))
@@ -901,18 +918,31 @@ TEXT - text that is inserted"
     (add-text-properties rc-insert-marker (point) '(front-sticky t rear-nonsticky t read-only t))
     (set-marker rc-insert-marker (point) rc-buffer)))
 
+(defun rc-user-p (name session)
+  "Predicate whether NAME is username in SESSION."
+  (string= name (rc-session-username session)))
+
 (defun rc-set-msg-to-buffer (msgs)
   "Write MSGS to buffer.
 
 This writes chat-message to buffer.
 MSGS - Rocket.chat's msg struct.
 `rc-buffer' - buffer for use by this."
-  (with-current-buffer rc-buffer    
+  (with-current-buffer rc-buffer
     (map 'list
-	 (lambda (x) (rc-insert-text (concat (assoc-val 'username (assoc-val 'u x))
-					     "> "
-					     (decode-coding-string (assoc-val 'msg x) 'utf-8)
-					     "\n")))
+	 (lambda (x)
+	   (let ((name (assoc-val 'username (assoc-val 'u x)))
+		 (old-point (point)))
+	     (rc-insert-text (concat name
+				     "> "
+				     (decode-coding-string (assoc-val 'msg x) 'utf-8)
+				     "\n"))
+	     (put-text-property old-point
+				(+ old-point (length name))
+				'face
+				(if (rc-user-p name rc-current-session)
+				    'rc-username-face
+				  'rc-participant-face))))
 	 (reverse msgs))))
 
 (defun rc-insert-prompt (&optional prompt)
@@ -922,10 +952,13 @@ MSGS - Rocket.chat's msg struct.
 	  (old-point nil))
       (goto-char (point-max))
       (forward-line 0)
-      (setf old-point (point))      
+      (setf old-point (point))
       (insert (concat prompt " "))
       (set-marker rc-input-marker (point))
-      (add-text-properties old-point (point) '(front-sticky t rear-nonsticky t read-only t)))))
+      (add-text-properties old-point (point) '(front-sticky t
+					       rear-nonsticky t
+					       read-only t
+					       face rc-prompt-face)))))
 
 (defun rc-show-channel-contents (channel)
   "Write chats in CHANNEL to buffer.
@@ -985,9 +1018,13 @@ SESSION - Infomation of logined server"
 (defun rc-post-line ()
   "This posts line at input-area to connected server."
   (interactive)
-  (rc-post (rc-user-input) rc-current-session)
-  (delete-region rc-input-marker (point-max))
-  (rc-update-channel))
+  (let ((input (rc-user-input)))
+    (if (not (string= input ""))
+	(progn	  
+	  (rc-post (encode-coding-string input 'utf-8) rc-current-session)
+	  (delete-region rc-input-marker (point-max))
+	  (rc-update-channel))
+      (message "Ignoring blank line."))))
 
 (defun rocket-chat-mode ()
   "Major mode for Rocket.chat."
