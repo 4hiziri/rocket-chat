@@ -2,15 +2,13 @@
 ;;; Commentary:
 ;;; Code:
 
-(load "request.el")
-; (require 'request)
+(require 'request)
 (require 'json)
 (require 'cl-lib)
+(require 'promise)
+(require 'async-await)
 
-(defun assoc-val (key alist)
-  "This return val of KEY from ALIST."
-  (rest (assoc key alist)))
-
+;;; structs
 (defstruct auth-token
   (user-id nil)
   (token nil))
@@ -29,6 +27,23 @@
   (customFields "undefined") ;; {field : value}
   )
 
+(defun reg-info-to-alist (reg-info)
+  (let ((ret nil))
+    (push `(:email ,(reg-info-email reg-info)) ret)
+    (push `(:name ,(reg-info-name reg-info)) ret)
+    (push `(:password ,(reg-info-password reg-info)) ret)
+    (push `(:username ,(reg-info-username reg-info)) ret)
+    (push `(:active ,(bool-to-str (reg-info-active reg-info))) ret)
+    (push `(:roles ,(list-to-str (reg-info-roles reg-info))) ret)
+    (push `(:joinDefaultChannels ,(bool-to-str (reg-info-joinDefaultChannels reg-info))) ret)
+    (push `(:requirePasswordChange
+	    ,(bool-to-str (reg-info-requirePasswordChange reg-info)))
+	  ret)
+    (push `(:sendWelcomeEmail ,(bool-to-str (reg-info-sendWelcomeEmail reg-info))) ret)
+    (push `(:verified ,(bool-to-str (reg-info-verified reg-info))) ret)
+    (push `(:customFields ,(reg-info-customFields reg-info)) ret)
+    ret))
+
 (defstruct channel
   id
   time-stamp
@@ -39,6 +54,39 @@
   default
   update-time
   lm)
+
+(defstruct message
+  id
+  room-id
+  message
+  time-stamp
+  user-info
+  updated-at
+  ;; editedAt
+  ;; editedBy
+  ;; urls
+  ;; attachments
+  ;; alias
+  ;; avatar
+  ;; groupable
+  ;; parseUrls
+  )
+
+(defun json-to-msg (json)
+  "This coverts JSON to struct message.
+
+JSON - message-data formed json."
+  (make-message :id (assoc-val '_id json)
+		:room-id (assoc-val 'rid json)
+		:message (decode-coding-string (assoc-val 'msg json) 'utf-8)
+		:time-stamp (assoc-val 'ts json)
+		:user-info (assoc-val 'u json) ;; :TODO defstruct user-info
+		:updated-at (assoc-val'_updatedAt json)))
+
+;;; utils
+(defun assoc-val (key alist)
+  "This return val of KEY from ALIST."
+  (rest (assoc key alist)))
 
 (defun json-channel (json)
   (make-channel :id (assoc-val '_id json)
@@ -90,26 +138,6 @@
 	     :success (exec-form (setq ret data))
 	     :sync t)
     ret))
-
-(defun reg-info-to-alist (reg-info)
-  (let ((ret nil))
-    (push `(:email ,(reg-info-email reg-info)) ret)
-    (push `(:name ,(reg-info-name reg-info)) ret)
-    (push `(:password ,(reg-info-password reg-info)) ret)
-    (push `(:username ,(reg-info-username reg-info)) ret)
-    (push `(:active ,(bool-to-str (reg-info-active reg-info))) ret)
-    (push `(:roles ,(list-to-str (reg-info-roles reg-info))) ret)
-    (push `(:joinDefaultChannels ,(bool-to-str (reg-info-joinDefaultChannels reg-info))) ret)
-    (push `(:requirePasswordChange
-	    ,(bool-to-str (reg-info-requirePasswordChange reg-info)))
-	  ret)
-    (push `(:sendWelcomeEmail ,(bool-to-str (reg-info-sendWelcomeEmail reg-info))) ret)
-    (push `(:verified ,(bool-to-str (reg-info-verified reg-info))) ret)
-    (push `(:customFields ,(reg-info-customFields reg-info)) ret)
-    ret))
-
-;;; struct
-
 
 ;;; api
 (defun info (url)
@@ -255,7 +283,7 @@ PASSWORD - user's password"
 	     (reg-info-to-alist reg-info)))
 
 
-;;; channel
+;; channel
 
 ;; :TODO optional activity UsersOnly
 (defun channels-add-all (url auth-token roomid &optional active-only-p)
@@ -312,13 +340,29 @@ PASSWORD - user's password"
 		       (list (cons "roomId" roomid)))))
     ret))
 
-;; :TODO make struct
-(defun channels-history (url auth-token roomid)
+(defun* channels-history (url auth-token roomid &key latest oldest inclusive count unreads)
+  "This return `message' struct.
+
+URL - server url.
+AUTH-TOKEN - token.
+ROOMID - channel's room id.
+LATEST - The end of time range of messages.
+OLDEST - The start of time range of messages.
+INCLUSIVE - If set t, fetch all history.
+COUNT - The amount of messages.
+UNREADS - Whether the amount of unreads should be included."
   (let ((ret (get-json (concat url "/api/v1/channels.history")
 		       (auth-headers auth-token)
-		       (list (cons "roomId" roomid)))))
+		       (remove-if #'null
+				  (list (cons "roomId" roomid)
+					(when latest (cons "latest" latest))
+					(when oldest (cons "oldest" oldest))
+					;; :TODO need convert t,nil to true,false
+					(when inclusive (cons "inclusive" inclusive)) 
+					(when count (cons "count" count))
+					(when unreads (cons "unreads" unreads)))))))    
     (when (assoc-val 'success ret)
-      (assoc-val 'messages ret))))
+      (map 'list #'json-to-msg (assoc-val 'messages ret)))))
 
 ;; :TODO channel-struct
 (defun channels-info (url auth-token room-name &optional roomid-p)
@@ -740,6 +784,11 @@ PASSWORD - user's password"
   :type 'sexp
   :group 'rocket-chat)
 
+(defcustom rc-reading-post-num 100
+  "Num of fetching posts."
+  :type 'sexp
+  :group 'rocket-chat)
+
 (defvar rocket-chat-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-m" 'rc-post-line)
@@ -922,28 +971,48 @@ TEXT - text that is inserted"
   "Predicate whether NAME is username in SESSION."
   (string= name (rc-session-username session)))
 
-(defun rc-set-msg-to-buffer (msgs)
-  "Write MSGS to buffer.
+(defun rc-time-to-local-time (time-string)
+  "This return local-time converted from TIME-STRING.
+
+TIME-STRING - time represented by rc."
+  (cl-flet ((time-parse (time-string)
+			(let* ((divided-point (string-match "T" time-string)))
+			  (concat (subseq time-string 0 divided-point)
+				  " "
+				  (subseq time-string (1+ divided-point) (length time-string))))))
+    (decode-time (time-add (apply #'encode-time (parse-time-string (time-parse time-string)))
+			   ;; modified to japanese local time
+			   ;; :TODO get timezone
+			   (* 9 3600)))))
+
+;; :TODO show time of the post.
+(defun rc-set-msg-to-buffer (msg)
+  "Write MSG to buffer.
 
 This writes chat-message to buffer.
-MSGS - Rocket.chat's msg struct.
+MSG - Rocket.chat's msg struct.
 `rc-buffer' - buffer for use by this."
   (with-current-buffer rc-buffer
-    (map 'list
-	 (lambda (x)
-	   (let ((name (assoc-val 'username (assoc-val 'u x)))
-		 (old-point (point)))
-	     (rc-insert-text (concat name
-				     "> "
-				     (decode-coding-string (assoc-val 'msg x) 'utf-8)
-				     "\n"))
-	     (put-text-property old-point
-				(+ old-point (length name))
-				'face
-				(if (rc-user-p name rc-current-session)
-				    'rc-username-face
-				  'rc-participant-face))))
-	 (reverse msgs))))
+    (goto-char rc-insert-marker)
+    (let ((name (assoc-val 'username (message-user-info msg)))
+	  (old-point (point)))
+      (rc-insert-text (concat name
+			      "> "
+			      (message-message msg)
+			      "\n"))
+      (set-marker rc-insert-marker (point))
+      (put-text-property old-point
+			 (+ old-point (length name))
+			 ;; (+ old-point (length name))
+			 'face
+			 (if (rc-user-p name rc-current-session)
+			     'rc-username-face
+			   'rc-participant-face))
+      (put-text-property old-point
+			 (point)
+			 ;; (+ old-point (length name))
+			 'message-info
+			 msg))))
 
 (defun rc-insert-prompt (&optional prompt)
   "Insert input PROMPT to buffer."
@@ -968,7 +1037,8 @@ CHANNEL - chat room
   (with-current-buffer rc-buffer
     (let* ((msgs (channels-history (rc-session-server rc-current-session)
 				   (rc-session-token rc-current-session)
-				   (channel-id channel)))
+				   (channel-id channel)
+				   :count rc-reading-post-num))
 	   (inhibit-read-only t))
       (setf buffer-read-only nil)
       (setf rc-insert-marker (make-marker))
@@ -977,12 +1047,20 @@ CHANNEL - chat room
       (when msgs
 	(erase-buffer)
 	(setf (rc-session-channel rc-current-session) channel)
-	(rc-set-msg-to-buffer msgs)
-	(rc-insert-prompt)))))
+	(mapcar #'rc-set-msg-to-buffer (reverse msgs))
+	(rc-insert-prompt)
+	(goto-char rc-input-marker)))))
 
-;; :TODO enable to assign num of posts
+(setq lexical-binding t)
+(setf time 2)
+(async-defun rc-async-update-channel ()
+  (interactive)
+  (loop do (await (promise:delay time
+				 (with-current-buffer rc-buffer
+				   (rc-update-channel))))))
+
 ;; :TODO only add unread post.
-(defun rc-update-channel () 
+(defun rc-update-channel ()
   "Update displayed channel contents.
 
 `rc-current-session' - Infomation of logined server"
@@ -990,12 +1068,14 @@ CHANNEL - chat room
   (with-current-buffer rc-buffer
     (let ((msgs (channels-history (rc-session-server rc-current-session)
 				  (rc-session-token rc-current-session)
-				  (channel-id (rc-session-channel rc-current-session))))	  
+				  (channel-id (rc-session-channel rc-current-session))
+				  :count rc-reading-post-num))
 	  (inhibit-read-only t))
       (when msgs
-	(erase-buffer)
-	(rc-set-msg-to-buffer msgs)
-	(rc-insert-prompt)))))
+	(delete-region (point-min) rc-insert-marker)
+	(set-marker rc-insert-marker (point-min))
+	(mapcar #'rc-set-msg-to-buffer (reverse msgs))
+	(goto-char rc-input-marker)))))
 
 (defun rc-user-input ()
   "This gets user input form input-area.
