@@ -1052,7 +1052,7 @@ CHANNEL - chat room
 	(goto-char rc-input-marker)))))
 
 (setq lexical-binding t)
-(setf time 2)
+(setf time 60) ;; raise blocking state. non-blocking IO is needed?
 (async-defun rc-async-update-channel ()
   (interactive)
   (loop do (await (promise:delay time
@@ -1070,8 +1070,15 @@ CHANNEL - chat room
 				  (rc-session-token rc-current-session)
 				  (channel-id (rc-session-channel rc-current-session))
 				  :count rc-reading-post-num))
-	  (inhibit-read-only t))
-      (when msgs
+	  (inhibit-read-only t)
+	  (last-time (rc-time-to-local-time
+		      (message-time-stamp
+		       (get-text-property (1- rc-insert-marker) 'message-info)))))
+      (when (and msgs
+		 ;; compare newest message's time-stamp and last post message's time-stamp.
+		 (time-less-p (rc-time-to-local-time (message-time-stamp (car msgs)))
+			      last-time))
+	(print "updated!")
 	(delete-region (point-min) rc-insert-marker)
 	(set-marker rc-insert-marker (point-min))
 	(mapcar #'rc-set-msg-to-buffer (reverse msgs))
