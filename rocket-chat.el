@@ -364,7 +364,6 @@ UNREADS - Whether the amount of unreads should be included."
     (when (assoc-val 'success ret)
       (map 'list #'json-to-msg (assoc-val 'messages ret)))))
 
-;; :TODO channel-struct
 (defun channels-info (url auth-token room-name &optional roomid-p)
   (let ((ret (get-json (concat url "/api/v1/channels.info")
 		       (auth-headers auth-token)
@@ -828,6 +827,8 @@ UNREADS - Whether the amount of unreads should be included."
 (defvar rc-input-marker nil
   "Inserted position.")
 (make-variable-buffer-local 'rc-input-marker)
+;; Should I use var like (setq-local)?
+;; I must use (buffer-local-value 'rc-current-session (get-buffer "rc-test"))
 
 ;; faces
 ;; why does not this work?
@@ -971,6 +972,20 @@ TEXT - text that is inserted"
   "Predicate whether NAME is username in SESSION."
   (string= name (rc-session-username session)))
 
+(defun rc-local-time-to-rc-time (time)
+  "This return rc-format TIME."
+  (let ((utc-time (decode-time (time-subtract (apply #'encode-time time)
+					      (car (current-time-zone))))))
+    (format "%d-%02d-%02dT%02d:%02d:%02d.000Z"
+	    (nth 5 utc-time)
+	    (nth 4 utc-time)
+	    (nth 3 utc-time)
+	    (nth 2 utc-time)
+	    (nth 1 utc-time)
+	    (nth 0 utc-time))))
+
+(setf test (rc-time-to-local-time (channel-lm (rc-session-channel (buffer-local-value 'rc-current-session (get-buffer "rc-test"))))))
+
 (defun rc-time-to-local-time (time-string)
   "This return local-time converted from TIME-STRING.
 
@@ -983,7 +998,7 @@ TIME-STRING - time represented by rc."
     (decode-time (time-add (apply #'encode-time (parse-time-string (time-parse time-string)))
 			   ;; modified to japanese local time
 			   ;; :TODO get timezone
-			   (* 9 3600)))))
+			   (car (current-time-zone))))))
 
 ;; :TODO show time of the post.
 (defun rc-set-msg-to-buffer (msg)
@@ -996,7 +1011,9 @@ MSG - Rocket.chat's msg struct.
     (goto-char rc-insert-marker)
     (let ((name (assoc-val 'username (message-user-info msg)))
 	  (old-point (point)))
-      (rc-insert-text (concat name
+      (rc-insert-text (concat (message-time-stamp msg)
+			      "@"
+			      name
 			      "> "
 			      (message-message msg)
 			      "\n"))
@@ -1051,14 +1068,6 @@ CHANNEL - chat room
 	(rc-insert-prompt)
 	(goto-char rc-input-marker)))))
 
-(setq lexical-binding t)
-(setf time 60) ;; raise blocking state. non-blocking IO is needed?
-(async-defun rc-async-update-channel ()
-  (interactive)
-  (loop do (await (promise:delay time
-				 (with-current-buffer rc-buffer
-				   (rc-update-channel))))))
-
 ;; :TODO only add unread post.
 (defun rc-update-channel ()
   "Update displayed channel contents.
@@ -1066,23 +1075,55 @@ CHANNEL - chat room
 `rc-current-session' - Infomation of logined server"
   (interactive)
   (with-current-buffer rc-buffer
-    (let ((msgs (channels-history (rc-session-server rc-current-session)
-				  (rc-session-token rc-current-session)
-				  (channel-id (rc-session-channel rc-current-session))
-				  :count rc-reading-post-num))
-	  (inhibit-read-only t)
-	  (last-time (rc-time-to-local-time
-		      (message-time-stamp
-		       (get-text-property (1- rc-insert-marker) 'message-info)))))
-      (when (and msgs
-		 ;; compare newest message's time-stamp and last post message's time-stamp.
-		 (time-less-p (rc-time-to-local-time (message-time-stamp (car msgs)))
-			      last-time))
-	(print "updated!")
-	(delete-region (point-min) rc-insert-marker)
-	(set-marker rc-insert-marker (point-min))
-	(mapcar #'rc-set-msg-to-buffer (reverse msgs))
-	(goto-char rc-input-marker)))))
+    (let* ((last (rc-last-updated-time rc-current-session))
+	   ;; (last-msg (get-text-property (1- rc-insert-marker) 'message-info))
+	   (msgs (cdr ;; :HACK last-post maybe duplicates.
+		  (channels-history (rc-session-server rc-current-session)
+				    (rc-session-token rc-current-session)
+				    (channel-id (rc-session-channel rc-current-session))
+				    :oldest (rc-local-time-to-rc-time last)
+				    :count rc-reading-post-num)))
+	   (channel (channels-info (rc-session-server rc-current-session)
+				   (rc-session-token rc-current-session)
+				   (channel-id (rc-session-channel rc-current-session))
+				   t))
+	   (inhibit-read-only t))
+      (when msgs
+	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info	
+	(mapcar #'rc-set-msg-to-buffer (reverse msgs))))))
+
+(defun rc-latest-updated-time (session)
+  "This return time of CHANNEL's last post on SESSION."
+  (let ((channel (channels-info (rc-session-server session)
+				(rc-session-token session)
+				(channel-id (rc-session-channel session))
+				t)))
+    (rc-time-to-local-time (channel-lm channel))))
+
+(defun rc-last-updated-time (session)
+  "This return latest time of updated posts in SESSION."
+  (rc-time-to-local-time
+   (channel-lm (rc-session-channel session))))
+
+(defun rc-need-update-p (session)
+  "This return whether need to update or not in SESSION."  
+  (let ((latest-msg (rc-latest-updated-time session))
+	(last-time (rc-last-updated-time session)))
+    (time-less-p latest-msg last-time)))
+
+;; Setting for async-update buffer.
+(setq lexical-binding t)
+(setf time 2) ;; raise blocking state. non-blocking IO is needed?
+;; :TODO buffer name
+(async-defun rc-async-update-channel () ;; (buffer-name)
+  (interactive)
+  (loop do
+	(await (promise:delay time
+			      (progn (print "update!")
+				     (when (rc-need-update-p
+					    (buffer-local-value 'rc-current-session (get-buffer "rc-test")))
+				       (rc-update-channel)))))))
+(rc-async-update-channel)
 
 (defun rc-user-input ()
   "This gets user input form input-area.
