@@ -7,6 +7,7 @@
 (require 'cl-lib)
 (require 'promise)
 (require 'async-await)
+(require 'time)
 
 ;;; structs
 (defstruct auth-token
@@ -939,34 +940,36 @@ Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
   (with-current-buffer rc-buffer
-    (let ((chs (channels-list (rc-session-server rc-current-session)
-			      (rc-session-token rc-current-session)))
-	  (buffer-read-only nil)
-	  (inhibit-read-only t))
-      (remove-text-properties (point-min) (point-max) '(read-only t))
-      (erase-buffer)
-      (mapcan (lambda (x)
-		(insert-text-button (channel-name x)
-				    'action (lambda (but)
-					      (rc-show-channel-contents
-					       (button-get but 'channel)))
-				    'follow-link t		
-				    'help-echo "Join Channel and display."
-				    'channel x)
-		(insert "\n"))
-	      chs))
+    (save-excursion
+      (let ((chs (channels-list (rc-session-server rc-current-session)
+				(rc-session-token rc-current-session)))
+	    (buffer-read-only nil)
+	    (inhibit-read-only t))
+	(remove-text-properties (point-min) (point-max) '(read-only t))
+	(erase-buffer)
+	(mapcan (lambda (x)
+		  (insert-text-button (channel-name x)
+				      'action (lambda (but)
+						(rc-show-channel-contents
+						 (button-get but 'channel)))
+				      'follow-link t		
+				      'help-echo "Join Channel and display."
+				      'channel x)
+		  (insert "\n"))
+		chs)))
     (setf buffer-read-only t)))
 
 (defun rc-insert-text (text)
   "This insert TEXT to buffer as read-only.
 
 TEXT - text that is inserted"
-  (let ((length (length text))
-	(buffer-read-only nil))
-    (goto-char rc-insert-marker)    
-    (insert text)
-    (add-text-properties rc-insert-marker (point) '(front-sticky t rear-nonsticky t read-only t))
-    (set-marker rc-insert-marker (point) rc-buffer)))
+  (save-excursion
+    (let ((length (length text))
+	  (buffer-read-only nil))
+      (goto-char rc-insert-marker)    
+      (insert text)
+      (add-text-properties rc-insert-marker (point) '(front-sticky t rear-nonsticky t read-only t))
+      (set-marker rc-insert-marker (point) rc-buffer))))
 
 (defun rc-user-p (name session)
   "Predicate whether NAME is username in SESSION."
@@ -984,7 +987,7 @@ TEXT - text that is inserted"
 	    (nth 1 utc-time)
 	    (nth 0 utc-time))))
 
-(setf test (rc-time-to-local-time (channel-lm (rc-session-channel (buffer-local-value 'rc-current-session (get-buffer "rc-test"))))))
+;; (setf test (rc-time-to-local-time (channel-lm (rc-session-channel (buffer-local-value 'rc-current-session (get-buffer "rc-test"))))))
 
 (defun rc-time-to-local-time (time-string)
   "This return local-time converted from TIME-STRING.
@@ -1008,43 +1011,42 @@ This writes chat-message to buffer.
 MSG - Rocket.chat's msg struct.
 `rc-buffer' - buffer for use by this."
   (with-current-buffer rc-buffer
-    (goto-char rc-insert-marker)
-    (let ((name (assoc-val 'username (message-user-info msg)))
-	  (old-point (point)))
-      (rc-insert-text (concat (message-time-stamp msg)
-			      "@"
-			      name
-			      "> "
-			      (message-message msg)
-			      "\n"))
-      (set-marker rc-insert-marker (point))
-      (put-text-property old-point
-			 (+ old-point (length name))
-			 ;; (+ old-point (length name))
-			 'face
-			 (if (rc-user-p name rc-current-session)
-			     'rc-username-face
-			   'rc-participant-face))
-      (put-text-property old-point
-			 (point)
-			 ;; (+ old-point (length name))
-			 'message-info
-			 msg))))
+    (save-excursion
+      (goto-char rc-insert-marker)
+      (let ((name (assoc-val 'username (message-user-info msg)))
+	    (old-point (point)))
+	(rc-insert-text (concat (message-time-stamp msg)
+				"@"
+				name
+				"> "
+				(message-message msg)
+				"\n"))
+	(put-text-property old-point
+			   (+ old-point (length name))
+			   'face
+			   (if (rc-user-p name rc-current-session)
+			       'rc-username-face
+			     'rc-participant-face))
+	(put-text-property old-point
+			   rc-insert-marker
+			   'message-info
+			   msg)))))
 
 (defun rc-insert-prompt (&optional prompt)
   "Insert input PROMPT to buffer."
   (with-current-buffer rc-buffer
     (let ((prompt (or prompt "<"))
 	  (old-point nil))
-      (goto-char (point-max))
-      (forward-line 0)
-      (setf old-point (point))
-      (insert (concat prompt " "))
-      (set-marker rc-input-marker (point))
-      (add-text-properties old-point (point) '(front-sticky t
-					       rear-nonsticky t
-					       read-only t
-					       face rc-prompt-face)))))
+      (save-excursion
+	(goto-char (point-max))
+	(forward-line 0)
+	(setf old-point (point))
+	(insert (concat prompt " "))
+	(set-marker rc-input-marker (point))
+	(add-text-properties old-point (point) '(front-sticky t
+							      rear-nonsticky t
+							      read-only t
+							      face rc-prompt-face))))))
 
 (defun rc-show-channel-contents (channel)
   "Write chats in CHANNEL to buffer.
@@ -1068,7 +1070,6 @@ CHANNEL - chat room
 	(rc-insert-prompt)
 	(goto-char rc-input-marker)))))
 
-;; :TODO only add unread post.
 (defun rc-update-channel ()
   "Update displayed channel contents.
 
@@ -1076,24 +1077,24 @@ CHANNEL - chat room
   (interactive)
   (with-current-buffer rc-buffer
     (let* ((last (rc-last-updated-time rc-current-session))
-	   ;; (last-msg (get-text-property (1- rc-insert-marker) 'message-info))
-	   (msgs (cdr ;; :HACK last-post maybe duplicates.
-		  (channels-history (rc-session-server rc-current-session)
+	   (last-msg (get-text-property (1- rc-insert-marker) 'message-info))
+	   (msgs (channels-history (rc-session-server rc-current-session)
 				    (rc-session-token rc-current-session)
 				    (channel-id (rc-session-channel rc-current-session))
 				    :oldest (rc-local-time-to-rc-time last)
-				    :count rc-reading-post-num)))
+				    :count rc-reading-post-num))
 	   (channel (channels-info (rc-session-server rc-current-session)
 				   (rc-session-token rc-current-session)
 				   (channel-id (rc-session-channel rc-current-session))
 				   t))
 	   (inhibit-read-only t))
-      (when msgs
+      (when (and msgs (> (length msgs) 1))
 	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info	
-	(mapcar #'rc-set-msg-to-buffer (reverse msgs))))))
+	(mapcar #'rc-set-msg-to-buffer (cdr (reverse msgs)))))))
 
 (defun rc-latest-updated-time (session)
   "This return time of CHANNEL's last post on SESSION."
+  ;; :FIXME maybe network process blocking IO.
   (let ((channel (channels-info (rc-session-server session)
 				(rc-session-token session)
 				(channel-id (rc-session-channel session))
@@ -1109,21 +1110,25 @@ CHANNEL - chat room
   "This return whether need to update or not in SESSION."  
   (let ((latest-msg (rc-latest-updated-time session))
 	(last-time (rc-last-updated-time session)))
-    (time-less-p latest-msg last-time)))
+    (time-less-p last-time latest-msg)))
 
 ;; Setting for async-update buffer.
 (setq lexical-binding t)
-(setf time 2) ;; raise blocking state. non-blocking IO is needed?
-;; :TODO buffer name
-(async-defun rc-async-update-channel () ;; (buffer-name)
-  (interactive)
-  (loop do
-	(await (promise:delay time
-			      (progn (print "update!")
-				     (when (rc-need-update-p
-					    (buffer-local-value 'rc-current-session (get-buffer "rc-test")))
-				       (rc-update-channel)))))))
-(rc-async-update-channel)
+(setf interval 2)
+(defun rc-async-update-channel (session)
+  "This update posts in channel of SESSION."
+  (async-start ;; :FIXME I think this is not efficient way.
+   `(lambda ()
+      (sleep-for ,interval))
+   (lambda (result)
+     (with-local-quit
+       (when (buffer-live-p rc-buffer)
+	 (when (rc-need-update-p session)
+	   (rc-update-channel)
+	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
+	 (rc-async-update-channel session))))))
+
+;; (rc-async-update-channel rc-current-session)
 
 (defun rc-user-input ()
   "This gets user input form input-area.
