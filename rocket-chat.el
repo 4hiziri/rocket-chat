@@ -841,7 +841,7 @@ UNREADS - Whether the amount of unreads should be included."
   "Face for username."
   :group 'rc-faces)
 
-(defface rc-participant-face '((t (:foreground "Cyan")))
+(defface rc-participant-face '((t (:foreground "#3d603d")))
   "Face for participant of channel."
   :group 'rc-faces)
 
@@ -1003,6 +1003,12 @@ TIME-STRING - time represented by rc."
 			   ;; :TODO get timezone
 			   (car (current-time-zone))))))
 
+(defun rc-format-time (time)
+  "This return format-string of TIME."
+  (format "%02d/%02d %02d:%02d" (nth 4 time) (nth 3 time) (nth 2 time) (nth 1 time)))
+
+(rc-format-time (decode-time (current-time)))
+
 ;; :TODO show time of the post.
 (defun rc-set-msg-to-buffer (msg)
   "Write MSG to buffer.
@@ -1014,10 +1020,10 @@ MSG - Rocket.chat's msg struct.
     (save-excursion
       (goto-char rc-insert-marker)
       (let ((name (assoc-val 'username (message-user-info msg)))
+	    (time-str (concat "(" (rc-format-time (rc-time-to-local-time (message-time-stamp msg))) ")"))
 	    (old-point (point)))
-	(rc-insert-text (concat (message-time-stamp msg)
-				"@"
-				name
+	(rc-insert-text (concat name
+				time-str
 				"> "
 				(message-message msg)
 				"\n"))
@@ -1127,6 +1133,8 @@ CHANNEL - chat room
 	   (rc-update-channel)
 	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
 	 (rc-async-update-channel session))))))
+
+;; (rc-async-update-channel rc-current-session)
 
 (defun rc-user-input ()
   "This gets user input form input-area.
