@@ -792,7 +792,8 @@ UNREADS - Whether the amount of unreads should be included."
 (defvar rocket-chat-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-m" 'rc-post-line)
-    (define-key map "\C-c\C-f" 'rc-update-channel)
+    (define-key map "\C-c\C-n" 'rc-update-channel)
+    (define-key map "\C-c\C-l" 'rc-show-channels)
     map)
   "Keymap for rocket-chat-mode.")
 
@@ -828,11 +829,8 @@ UNREADS - Whether the amount of unreads should be included."
 (defvar rc-input-marker nil
   "Inserted position.")
 (make-variable-buffer-local 'rc-input-marker)
-;; Should I use var like (setq-local)?
-;; I must use (buffer-local-value 'rc-current-session (get-buffer "rc-test"))
 
 ;; faces
-;; why does not this work?
 (defgroup rc-faces nil
   "Faces for Rocket.chat-mode"
   :group 'rocket-chat)
@@ -940,6 +938,7 @@ Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
   (with-current-buffer rc-buffer
+    (setf rc-insert-marker nil)
     (save-excursion
       (let ((chs (channels-list (rc-session-server rc-current-session)
 				(rc-session-token rc-current-session)))
@@ -987,8 +986,6 @@ TEXT - text that is inserted"
 	    (nth 1 utc-time)
 	    (nth 0 utc-time))))
 
-;; (setf test (rc-time-to-local-time (channel-lm (rc-session-channel (buffer-local-value 'rc-current-session (get-buffer "rc-test"))))))
-
 (defun rc-time-to-local-time (time-string)
   "This return local-time converted from TIME-STRING.
 
@@ -999,8 +996,6 @@ TIME-STRING - time represented by rc."
 				  " "
 				  (subseq time-string (1+ divided-point) (length time-string))))))
     (decode-time (time-add (apply #'encode-time (parse-time-string (time-parse time-string)))
-			   ;; modified to japanese local time
-			   ;; :TODO get timezone
 			   (car (current-time-zone))))))
 
 (defun rc-format-time (time)
@@ -1074,7 +1069,8 @@ CHANNEL - chat room
 	(setf (rc-session-channel rc-current-session) channel)
 	(mapcar #'rc-set-msg-to-buffer (reverse msgs))
 	(rc-insert-prompt)
-	(goto-char rc-input-marker)))))
+	(goto-char rc-input-marker)
+	(rc-async-update-channel rc-current-session)))))
 
 (defun rc-update-channel ()
   "Update displayed channel contents.
@@ -1121,20 +1117,18 @@ CHANNEL - chat room
 ;; Setting for async-update buffer.
 (setq lexical-binding t)
 (setf interval 2)
-(defun rc-async-update-channel (session) ;; :TODO how to kill this?
+(defun rc-async-update-channel (session)
   "This update posts in channel of SESSION."
   (async-start ;; :FIXME I think this is not efficient way.
    `(lambda ()
       (sleep-for ,interval))
-   (lambda (result)
-     (with-local-quit
-       (when (buffer-live-p rc-buffer)
+   (lambda (result)     
+     (with-local-quit       
+       (when (and (buffer-live-p rc-buffer) (buffer-local-value 'rc-insert-marker rc-buffer))
 	 (when (rc-need-update-p session)
 	   (rc-update-channel)
 	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
 	 (rc-async-update-channel session))))))
-
-;; (rc-async-update-channel rc-current-session)
 
 (defun rc-user-input ()
   "This gets user input form input-area.
