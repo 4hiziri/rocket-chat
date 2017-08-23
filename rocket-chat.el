@@ -1115,7 +1115,7 @@ CHANNEL - chat room
 ;; Setting for async-update buffer.
 (setq lexical-binding t)
 (setf interval 2)
-(defun rc-async-update-channel (session)
+(defun rc-async-update-channel (session) ;; :TODO how to kill this?
   "This update posts in channel of SESSION."
   (async-start ;; :FIXME I think this is not efficient way.
    `(lambda ()
@@ -1127,8 +1127,6 @@ CHANNEL - chat room
 	   (rc-update-channel)
 	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
 	 (rc-async-update-channel session))))))
-
-;; (rc-async-update-channel rc-current-session)
 
 (defun rc-user-input ()
   "This gets user input form input-area.
