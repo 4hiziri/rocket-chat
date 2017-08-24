@@ -1,4 +1,6 @@
 ;;; rocket-chat --- Emacs client for Rocket.chat
+
+;; Copyright 2017 takagi seiya
 ;; Author: meirvg@gmail.com
 ;; Version: 0.0.1
 ;; Keywords: Rocket.chat
