@@ -1,4 +1,4 @@
-;;; package --- summary
+;;; rocket-chat --- Emacs client for Rocket.chat
 ;;; Commentary:
 ;;; Code:
 
