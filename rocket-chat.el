@@ -1,5 +1,6 @@
 ;;; rocket-chat --- Emacs client for Rocket.chat
-;; :Version: 0.0.1
+;; Author: meirvg@gmail.com
+;; Version: 0.0.1
 ;;; Commentary:
 ;;; Code:
 
