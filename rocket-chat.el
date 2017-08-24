@@ -1178,4 +1178,4 @@ SESSION - Infomation of logined server"
   (run-hooks 'rocket-chat-mode-hook))
 
 (provide 'rocket-chat)
-;;; rocket-chat ends here
+;;; rocket-chat.el ends here
