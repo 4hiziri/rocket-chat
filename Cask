@@ -5,7 +5,5 @@
 
 (development
  (depends-on "request")
- (depends-on "json")
- (depends-on "cl-lib")
  (depends-on "promise")
  (depends-on "async-await"))
