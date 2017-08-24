@@ -1,8 +1,6 @@
 ;;; rocket-chat --- Emacs client for Rocket.chat
+;; :Version: 0.0.1
 ;;; Commentary:
-;; :Version 0.0.1
-
-
 ;;; Code:
 
 (require 'request)
