@@ -1,4 +1,4 @@
-;;; rocket-chat --- Emacs client for Rocket.chat
+;;; rocket-chat.el --- Emacs client for Rocket.chat
 
 ;; Copyright 2017 Takagi Seiya
 ;;
