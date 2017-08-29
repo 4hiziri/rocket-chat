@@ -404,14 +404,15 @@ CHANNEL - chat room
 	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
 	 (rc-async-update-channel session))))))
 
+;; :TODO add detail about each user.
 (defun rc-show-user-list ()
   "This insert user-list to channel's buffer."
   (let ((channel (channels-info (rc-session-server rc-current-session)
 				(rc-session-token rc-current-session)
 				(channel-name (rc-session-channel rc-current-session)))))
     (rc-insert-system "")
-    (rc-insert-system "USER LIST")
-    ()))
+    (rc-insert-system "* USER LIST *")
+    (mapc (lambda (x) (rc-insert-system x)) (channel-usernames channel))))
 
 (defun rc-user-input ()
   "This gets user input form input-area.
