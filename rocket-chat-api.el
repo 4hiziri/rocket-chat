@@ -10,6 +10,8 @@
 ;;; Commentary:
 ;;; Code:
 
+(eval-when-compile
+  (require 'cl))
 (require 'request)
 (require 'json)
 (require 'cl-lib)
