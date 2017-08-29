@@ -47,19 +47,18 @@
   :type 'sexp
   :group 'rocket-chat)
 
+; :TODO enable mode to be changed
 (defvar rocket-chat-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-m" 'rc-post-line)
     (define-key map "\C-c\C-n" 'rc-update-channel)
     (define-key map "\C-c\C-l" 'rc-show-channels)
+    (define-key map "\C-c\C-u" 'rc-show-user-list)
     map)
   "Keymap for rocket-chat-mode.")
 
-;; :TODO research
-;; unnecessary?
+;; :FIXME delete this?
 (defvar rocket-chat-mode-abbrev-table nil)
-;; :TODO syntax-table?
-;; unnecessary?
 (define-abbrev-table 'rocket-chat-mode-abbrev-table ())
 
 (defstruct rc-session
@@ -74,7 +73,7 @@
 (make-variable-buffer-local 'rc-current-session)
 
 (defvar rc-buffer-name
-  "rc-test")
+  "*rocket-chat*")
 
 (defvar rc-buffer
   (get-buffer-create rc-buffer-name)
@@ -103,6 +102,10 @@
 
 (defface rc-prompt-face '((t (:background "Green")))
   "Face for prompt."
+  :group 'rc-faces)
+
+(defface rc-system-face '((t (:foreground "Cyan")))
+  "Face for system-message."
   :group 'rc-faces)
 
 (defun rc-get-server (&optional url)
@@ -262,8 +265,7 @@ TIME-STRING - time represented by rc."
 
 (rc-format-time (decode-time (current-time)))
 
-;; :TODO show time of the post.
-(defun rc-set-msg-to-buffer (msg)
+(defun rc-insert-msg (msg)
   "Write MSG to buffer.
 
 This writes chat-message to buffer.
@@ -274,7 +276,8 @@ MSG - Rocket.chat's msg struct.
       (goto-char rc-insert-marker)
       (let ((name (assoc-val 'username (message-user-info msg)))
 	    (time-str (concat "(" (rc-format-time (rc-time-to-local-time (message-time-stamp msg))) ")"))
-	    (old-point (point)))
+	    (old-point (point))
+	    (inhibit-read-only t))
 	(rc-insert-text (concat name
 				time-str
 				"> "
@@ -295,7 +298,8 @@ MSG - Rocket.chat's msg struct.
   "Insert input PROMPT to buffer."
   (with-current-buffer rc-buffer
     (let ((prompt (or prompt "<"))
-	  (old-point nil))
+	  (old-point nil)
+	  (inhibit-read-only t))
       (save-excursion
 	(goto-char (point-max))
 	(forward-line 0)
@@ -306,6 +310,19 @@ MSG - Rocket.chat's msg struct.
 							      rear-nonsticky t
 							      read-only t
 							      face rc-prompt-face))))))
+;; :TODO facenn
+(defun rc-insert-system (msg)
+  "This insert MSG to `rc-buffer'."  
+  (with-current-buffer rc-buffer
+    (save-excursion
+      (let ((buffer-read-only nil)
+	    (inhibit-read-only t))
+	(goto-char rc-insert-marker)
+	(insert msg)
+	(insert "\n")
+	(put-text-property rc-insert-marker (point) 'face 'rc-system-face)
+	(print (point))
+	(set-marker rc-insert-marker (point))))))
 
 (defun rc-show-channel-contents (channel)
   "Write chats in CHANNEL to buffer.
@@ -325,7 +342,7 @@ CHANNEL - chat room
       (when msgs
 	(erase-buffer)
 	(setf (rc-session-channel rc-current-session) channel)
-	(mapcar #'rc-set-msg-to-buffer (reverse msgs))
+	(mapcar #'rc-insert-msg (reverse msgs))
 	(rc-insert-prompt)
 	(goto-char rc-input-marker)
 	(rc-async-update-channel rc-current-session)))))
@@ -350,11 +367,10 @@ CHANNEL - chat room
 	   (inhibit-read-only t))
       (when (and msgs (> (length msgs) 1))
 	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info	
-	(mapcar #'rc-set-msg-to-buffer (cdr (reverse msgs)))))))
+	(mapcar #'rc-insert-msg (cdr (reverse msgs)))))))
 
 (defun rc-latest-updated-time (session)
   "This return time of CHANNEL's last post on SESSION."
-  ;; :FIXME maybe network process blocking IO.
   (let ((channel (channels-info (rc-session-server session)
 				(rc-session-token session)
 				(channel-id (rc-session-channel session))
@@ -387,6 +403,15 @@ CHANNEL - chat room
 	   (rc-update-channel)
 	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
 	 (rc-async-update-channel session))))))
+
+(defun rc-show-user-list ()
+  "This insert user-list to channel's buffer."
+  (let ((channel (channels-info (rc-session-server rc-current-session)
+				(rc-session-token rc-current-session)
+				(channel-name (rc-session-channel rc-current-session)))))
+    (rc-insert-system "")
+    (rc-insert-system "USER LIST")
+    ()))
 
 (defun rc-user-input ()
   "This gets user input form input-area.
@@ -426,6 +451,8 @@ SESSION - Infomation of logined server"
 	local-addrev-table rocket-chat-mode-abbrev-table)
   ;;(set-syntax-table syntax-table)
   (run-hooks 'rocket-chat-mode-hook))
+
+;; :TODO override key-map C-a for set-top-to-input-marker
 
 (provide 'rocket-chat)
 ;;; rocket-chat.el ends here
