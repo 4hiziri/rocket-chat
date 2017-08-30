@@ -231,7 +231,7 @@ TEXT - text that is inserted"
       (add-text-properties rc-insert-marker (point) '(front-sticky t rear-nonsticky t read-only t))
       (set-marker rc-insert-marker (point) rc-buffer))))
 
-(defun rc-user-p (name session)
+(defun rc-yourself-p (name session)
   "Predicate whether NAME is username in SESSION."
   (string= name (rc-session-username session)))
 
@@ -274,7 +274,7 @@ MSG - Rocket.chat's msg struct.
   (with-current-buffer rc-buffer
     (save-excursion
       (goto-char rc-insert-marker)
-      (let ((name (assoc-val 'username (message-user-info msg)))
+      (let ((name (rc-user-username (setf test (message-user-info msg))))
 	    (time-str (concat "(" (rc-format-time (rc-time-to-local-time (message-time-stamp msg))) ")"))
 	    (old-point (point))
 	    (inhibit-read-only t))
@@ -286,7 +286,7 @@ MSG - Rocket.chat's msg struct.
 	(put-text-property old-point
 			   (+ old-point (length name))
 			   'face
-			   (if (rc-user-p name rc-current-session)
+			   (if (rc-yourself-p name rc-current-session)
 			       'rc-username-face
 			     'rc-participant-face))
 	(put-text-property old-point
@@ -310,7 +310,7 @@ MSG - Rocket.chat's msg struct.
 							      rear-nonsticky t
 							      read-only t
 							      face rc-prompt-face))))))
-;; :TODO facenn
+
 (defun rc-insert-system (msg)
   "This insert MSG to `rc-buffer'."  
   (with-current-buffer rc-buffer
@@ -320,8 +320,7 @@ MSG - Rocket.chat's msg struct.
 	(goto-char rc-insert-marker)
 	(insert msg)
 	(insert "\n")
-	(put-text-property rc-insert-marker (point) 'face 'rc-system-face)
-	(print (point))
+	(add-text-properties rc-insert-marker (point) '(face rc-system-face read-only t))
 	(set-marker rc-insert-marker (point))))))
 
 (defun rc-show-channel-contents (channel)
@@ -404,15 +403,29 @@ CHANNEL - chat room
 	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
 	 (rc-async-update-channel session))))))
 
+(defun rc-get-user-status (url token user-name)
+  "This return user's information.
+
+URL - server
+TOKEN - token for access
+USER-NAME - user's name"
+  (users-get-presence url token user-name))
+
 ;; :TODO add detail about each user.
 (defun rc-show-user-list ()
   "This insert user-list to channel's buffer."
-  (let ((channel (channels-info (rc-session-server rc-current-session)
-				(rc-session-token rc-current-session)
-				(channel-name (rc-session-channel rc-current-session)))))
-    (rc-insert-system "")
-    (rc-insert-system "* USER LIST *")
-    (mapc (lambda (x) (rc-insert-system x)) (channel-usernames channel))))
+  (interactive)
+  (with-current-buffer rc-buffer
+    (let ((channel (channels-info (rc-session-server rc-current-session)
+				  (rc-session-token rc-current-session)
+				  (channel-name (rc-session-channel rc-current-session)))))
+      (rc-insert-system "")
+      (rc-insert-system "* USER LIST *")
+      (mapc (lambda (x)
+	      (rc-insert-system (concat x " @ " (car (rc-get-user-status (rc-session-server rc-current-session)
+								       (rc-session-token rc-current-session)
+								       x)))))
+	    (channel-usernames channel)))))
 
 (defun rc-user-input ()
   "This gets user input form input-area.
