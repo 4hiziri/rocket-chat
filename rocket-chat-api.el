@@ -16,7 +16,7 @@
 (require 'json)
 (require 'cl-lib)
 
-;;; structs
+;;; struct
 (defstruct auth-token
   (user-id nil)
   (token nil))
@@ -88,8 +88,27 @@ JSON - message-data formed json."
 		:room-id (assoc-val 'rid json)
 		:message (decode-coding-string (assoc-val 'msg json) 'utf-8)
 		:time-stamp (assoc-val 'ts json)
-		:user-info (assoc-val 'u json) ;; :TODO defstruct user-info
+		:user-info (json-to-user (assoc-val 'u json))
 		:updated-at (assoc-val'_updatedAt json)))
+
+(defstruct rc-user
+  id
+  type
+  status
+  active
+  name
+  utc-offset
+  username)
+
+(defun json-to-user (json)
+  "This covert JSON user info to struct user."
+  (make-rc-user :id (assoc-val '_id json)
+		:type (assoc-val 'type json)
+		:status (assoc-val 'status json)
+		:active (assoc-val 'active json)
+		:name (assoc-val 'name json)
+		:utc-offset (assoc-val 'utcOffset json)
+		:username (assoc-val 'username json)))
 
 ;;; utils
 (defun assoc-val (key alist)
@@ -230,6 +249,13 @@ PASSWORD - user's password"
     ret))
 
 (defun users-get-presence (url auth-token user-id &optional userid-p)
+  "This return presence and connection status.
+return format - (presence . connection-status)
+
+URL - server
+AUTH-TOKEN - token for access
+USER-ID - user-id or name
+USERID-P - Decide field name"
   (let ((ret nil))
     (request (concat url "/api/v1/users.getPresence")
 	     :params (if userid-p
@@ -239,9 +265,17 @@ PASSWORD - user's password"
 	     :headers (auth-headers auth-token)
 	     :success (exec-form (setq ret data))
 	     :sync t)
-    ret))
+    (if (assoc-val 'success ret)
+	(cons (assoc-val 'presence ret)
+	      (assoc-val 'connectionStatus ret)))))
 
 (defun users-info (url auth-token user-id &optional userid-p)
+  "This return struct user.
+
+URL - Server url
+AUTH-TOKEN - Token for accesse
+USER-ID - This means user-id or user-name
+USERID-P - This decide user-id is user-id or user-name."
   (let ((ret nil))
     (request (concat url "/api/v1/users.info")
 	     :params (if userid-p
@@ -251,17 +285,19 @@ PASSWORD - user's password"
 	     :headers (auth-headers auth-token)
 	     :success (exec-form (setq ret data))
 	     :sync t)
-    ret))
+    (if (assoc-val 'success ret)
+	(json-to-user (assoc-val 'user ret)))))
 
-;; :TODO def user struct and return list of struct-user
 (defun users-list (url auth-token)
+  "This fetch user's info from URL with AUTH-TOKEN."
   (let ((ret nil))
     (request (concat url "/api/v1/users.list")
 	     :parser 'json-read
 	     :headers (auth-headers auth-token)
 	     :success (exec-form (setq ret data))
 	     :sync t)
-    ret))
+    (if (assoc-val 'success ret)
+	(map 'list #'json-to-user (assoc-val 'users ret)))))
 
 ;; :TODO optional secretURL
 (defun users-register (url reg-info)
@@ -373,6 +409,12 @@ UNREADS - Whether the amount of unreads should be included."
       (map 'list #'json-to-msg (assoc-val 'messages ret)))))
 
 (defun channels-info (url auth-token room-name &optional roomid-p)
+  "This return channel's information.
+
+URL - server
+AUTH-TOKEN - token for access
+ROOM-NAME - room name
+ROOMID-P - decide field name"
   (let ((ret (get-json (concat url "/api/v1/channels.info")
 		       (auth-headers auth-token)
 		       (list (if roomid-p
