@@ -3,7 +3,7 @@
 ;; Copyright 2017 Takagi Seiya
 ;;
 ;; Author: meirvg@gmail.com
-;; Version: 0.0.1
+;; Version: 0.0.3
 ;; Keywords: Rocket.chat
 ;; X-URL: not distributed yet
 
