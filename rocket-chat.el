@@ -108,6 +108,14 @@
   "Face for system-message."
   :group 'rc-faces)
 
+(defface rc-user-online-face '((t (:foreground "Green")))'
+  "Face for user-status."
+  :group 'rc-faces)
+
+(defface rc-user-offline-face '((t (:foreground "Red")))'
+  "Face for user-status."
+  :group 'rc-faces)
+
 (defun rc-get-server (&optional url)
   "Return a Rocket.chat URL.
 
@@ -160,8 +168,8 @@ PASSWORD - login password"
     (setq rc-current-session
 	  (rc-login server username password))
     (cl-flet ((success ()
-		       (goto-char (point-min))		       
-		       (message "Successed!")			 
+		       (goto-char (point-min))
+		       (message "Successed!")
 		       (rc-show-channels))
 	      (fail ()
 		    (setq rc-current-session nil) ;; :TODO clear state function needed
@@ -219,18 +227,6 @@ rc-current-session - Infomation of logined server"
 		chs)))
     (setf buffer-read-only t)))
 
-(defun rc-insert-text (text)
-  "This insert TEXT to buffer as read-only.
-
-TEXT - text that is inserted"
-  (save-excursion
-    (let ((length (length text))
-	  (buffer-read-only nil))
-      (goto-char rc-insert-marker)    
-      (insert text)
-      (add-text-properties rc-insert-marker (point) '(front-sticky t rear-nonsticky t read-only t))
-      (set-marker rc-insert-marker (point) rc-buffer))))
-
 (defun rc-yourself-p (name session)
   "Predicate whether NAME is username in SESSION."
   (string= name (rc-session-username session)))
@@ -263,7 +259,16 @@ TIME-STRING - time represented by rc."
   "This return format-string of TIME."
   (format "%02d/%02d %02d:%02d" (nth 4 time) (nth 3 time) (nth 2 time) (nth 1 time)))
 
-(rc-format-time (decode-time (current-time)))
+(defun rc-insert (msg &optional proparties)
+  "This insert MSG with FACE."
+  (with-current-buffer rc-buffer
+    (save-excursion
+      (goto-char rc-insert-marker)
+      (let ((read-only nil)
+	    (inhibit-read-only t))
+	(insert msg)
+	(add-text-properties rc-insert-marker (point) (append proparties '(front-sticky t rear-nonsticky t read-only t)))
+	(set-marker rc-insert-marker (point))))))
 
 (defun rc-insert-msg (msg)
   "Write MSG to buffer.
@@ -278,21 +283,14 @@ MSG - Rocket.chat's msg struct.
 	    (time-str (concat "(" (rc-format-time (rc-time-to-local-time (message-time-stamp msg))) ")"))
 	    (old-point (point))
 	    (inhibit-read-only t))
-	(rc-insert-text (concat name
-				time-str
-				"> "
-				(message-message msg)
-				"\n"))
-	(put-text-property old-point
-			   (+ old-point (length name))
-			   'face
-			   (if (rc-yourself-p name rc-current-session)
-			       'rc-username-face
-			     'rc-participant-face))
-	(put-text-property old-point
-			   rc-insert-marker
-			   'message-info
-			   msg)))))
+	(rc-insert name (list 'face (if (rc-yourself-p name rc-current-session)
+				       'rc-username-face
+				     'rc-participant-face)))
+	(rc-insert (concat time-str
+			   "> "
+			   (message-message msg)
+			   "\n")
+		   (list 'message-info msg))))))
 
 (defun rc-insert-prompt (&optional prompt)
   "Insert input PROMPT to buffer."
@@ -307,21 +305,13 @@ MSG - Rocket.chat's msg struct.
 	(insert (concat prompt " "))
 	(set-marker rc-input-marker (point))
 	(add-text-properties old-point (point) '(front-sticky t
-							      rear-nonsticky t
-							      read-only t
-							      face rc-prompt-face))))))
+						 rear-nonsticky t
+						 read-only t
+						 face rc-prompt-face))))))
 
 (defun rc-insert-system (msg)
-  "This insert MSG to `rc-buffer'."  
-  (with-current-buffer rc-buffer
-    (save-excursion
-      (let ((buffer-read-only nil)
-	    (inhibit-read-only t))
-	(goto-char rc-insert-marker)
-	(insert msg)
-	(insert "\n")
-	(add-text-properties rc-insert-marker (point) '(face rc-system-face read-only t))
-	(set-marker rc-insert-marker (point))))))
+  "This insert MSG to `rc-buffer' with FACE-SYMBOL."
+  (rc-insert msg (list 'face 'rc-system-face)))
 
 (defun rc-show-channel-contents (channel)
   "Write chats in CHANNEL to buffer.
@@ -411,7 +401,9 @@ TOKEN - token for access
 USER-NAME - user's name"
   (users-get-presence url token user-name))
 
-;; :TODO add detail about each user.
+;; :TODO take arg to fetch user-name.
+;; name -> show status of that user that is name.
+;; all -> show all user's status
 (defun rc-show-user-list ()
   "This insert user-list to channel's buffer."
   (interactive)
@@ -419,12 +411,15 @@ USER-NAME - user's name"
     (let ((channel (channels-info (rc-session-server rc-current-session)
 				  (rc-session-token rc-current-session)
 				  (channel-name (rc-session-channel rc-current-session)))))
-      (rc-insert-system "")
-      (rc-insert-system "* USER LIST *")
+      (rc-insert-system "\n")
+      (rc-insert-system "* USER LIST *\n")
       (mapc (lambda (x)
-	      (rc-insert-system (concat x " @ " (car (rc-get-user-status (rc-session-server rc-current-session)
-								       (rc-session-token rc-current-session)
-								       x)))))
+	      (rc-insert-system x)
+	      (rc-insert-system "@")
+	      (rc-insert-system (car (rc-get-user-status (rc-session-server rc-current-session)
+							 (rc-session-token rc-current-session)
+							 x)))
+	      (rc-insert-system "\n"))
 	    (channel-usernames channel)))))
 
 (defun rc-user-input ()
