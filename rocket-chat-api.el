@@ -101,7 +101,7 @@ JSON - message-data formed json."
   username)
 
 (defun json-to-user (json)
-  "This covert JSON user info to struct user."
+  "This convert JSON user info to struct user."
   (make-rc-user :id (assoc-val '_id json)
 		:type (assoc-val 'type json)
 		:status (assoc-val 'status json)
@@ -109,6 +109,27 @@ JSON - message-data formed json."
 		:name (assoc-val 'name json)
 		:utc-offset (assoc-val 'utcOffset json)
 		:username (assoc-val 'username json)))
+
+(defstruct rc-im
+  id
+  name
+  type
+  msg-num
+  usernames
+  username
+  updated-at
+  time-stamp)
+
+(defun json-to-im (json)
+  "This convert JSON to struct im."
+  (make-rc-im :id (assoc-val '_id json)
+	      :name (assoc-val 'name json)
+	      :type (assoc-val 'type json)
+	      :msg-num (assoc-val 'msgs json)
+	      :usernames (aref (assoc-val 'usernames json) 0)
+	      :username (assoc-val 'username json)
+	      :updated-at (assoc-val '_updatedAt json)
+	      :time-stamp (assoc-val 'ts json)))
 
 ;;; utils
 (defun assoc-val (key alist)
@@ -157,7 +178,13 @@ JSON - message-data formed json."
     ret))
 
 (defun get-json (url header arg-json-alist)
-  (let ((ret nil))
+  (let ((ret nil)
+	(arg-json-alist (mapcar (lambda (x)
+				  (if (symbolp (first x))
+				      (cons (string-remove-prefix ":" (symbol-name (car x)))
+					    (rest x))
+				    x))
+				arg-json-alist)))
     (request url
 	     :params arg-json-alist
 	     :parser 'json-read
@@ -703,7 +730,12 @@ ROOMID-P - decide field name"
 			(list (cons :roomId roomid)))))
     (assoc-val 'success ret)))
 
-;; (defun im-history (url auth-toke ))
+(defun im-history (url auth-token roomid)
+  (let ((ret (get-json (concat url "/api/v1/im.history")
+			(auth-headers auth-token)
+			(list (cons :roomId roomid)))))
+    (when (assoc-val 'success ret)
+      (map 'list #'json-to-msg (assoc-val 'messages ret)))))
 
 (defun im-list-everyone (url auth-token)
   (let ((ret (get-json (concat url "/api/v1/im.list.everyone")
@@ -715,7 +747,8 @@ ROOMID-P - decide field name"
   (let ((ret (get-json (concat url "/api/v1/im.list")
 		       (auth-headers auth-token)
 		       nil)))
-    ret))
+    (when (assoc-val 'success ret)
+      (map 'list (lambda (x) (json-to-im x)) (assoc-val 'ims ret)))))
 
 (defun im-messages-others (url auth-token roomid)
   (let ((ret (get-json (concat url "/api/v1/im.messages.others")
