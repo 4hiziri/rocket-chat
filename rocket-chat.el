@@ -76,7 +76,7 @@
   "*rocket-chat*")
 
 (defvar rc-buffer
-  (get-buffer-create rc-buffer-name)
+  nil
   "Buffer.")
 
 (defvar rc-insert-marker nil
