@@ -165,14 +165,14 @@ PASSWORD - login password"
   (with-current-buffer rc-buffer
     (rocket-chat-mode)
     (add-hook 'pre-command-hook 'rc-set-marker-at-prompt)
-    (setq rc-current-session
+    (setf rc-current-session
 	  (rc-login server username password))
     (cl-flet ((success ()
 		       (goto-char (point-min))
 		       (message "Successed!")
 		       (rc-show-channels))
 	      (fail ()
-		    (setq rc-current-session nil) ;; :TODO clear state function needed
+		    (setf rc-current-session nil) ;; :TODO clear state function needed
 		    (kill-buffer rc-buffer)
 		    (message "Failed..")))
       (if (rc-session-token rc-current-session)
@@ -220,7 +220,7 @@ rc-current-session - Infomation of logined server"
 				      'action (lambda (but)
 						(rc-show-channel-contents
 						 (button-get but 'channel)))
-				      'follow-link t		
+				      'follow-link t
 				      'help-echo "Join Channel and display."
 				      'channel x)
 		  (insert "\n"))
@@ -355,7 +355,7 @@ CHANNEL - chat room
 				   t))
 	   (inhibit-read-only t))
       (when (and msgs (> (length msgs) 1))
-	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info	
+	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info
 	(mapcar #'rc-insert-msg (cdr (reverse msgs)))))))
 
 (defun rc-latest-updated-time (session)
@@ -372,25 +372,27 @@ CHANNEL - chat room
    (channel-lm (rc-session-channel session))))
 
 (defun rc-need-update-p (session)
-  "This return whether need to update or not in SESSION."  
+  "This return whether need to update or not in SESSION."
   (let ((latest-msg (rc-latest-updated-time session))
 	(last-time (rc-last-updated-time session)))
     (time-less-p last-time latest-msg)))
 
-;; Setting for async-update buffer.
-(setq lexical-binding t)
+;; Setting for async-update buffer.n
+(setf lexical-binding t)
 (setf interval 2)
 (defun rc-async-update-channel (session)
   "This update posts in channel of SESSION."
   (async-start ;; :FIXME I think this is not efficient way.
    `(lambda ()
       (sleep-for ,interval))
-   (lambda (result)     
-     (with-local-quit       
-       (when (and (buffer-live-p rc-buffer) (buffer-local-value 'rc-insert-marker rc-buffer))
+   (lambda (result)
+     (with-local-quit
+       (when (and (buffer-live-p rc-buffer)
+		  (buffer-local-value 'rc-insert-marker rc-buffer))
 	 (when (rc-need-update-p session)
 	   (rc-update-channel)
-	   (setf session (buffer-local-value 'rc-current-session (get-buffer rc-buffer-name))))
+	   (setf session (buffer-local-value 'rc-current-session
+					     (get-buffer rc-buffer-name))))
 	 (rc-async-update-channel session))))))
 
 (defun rc-get-user-status (url token user-name)
@@ -445,7 +447,7 @@ SESSION - Infomation of logined server"
   (interactive)
   (let ((input (rc-user-input)))
     (if (not (string= input ""))
-	(progn	  
+	(progn
 	  (rc-post (encode-coding-string input 'utf-8) rc-current-session)
 	  (delete-region rc-input-marker (point-max))
 	  (rc-update-channel))
@@ -455,7 +457,7 @@ SESSION - Infomation of logined server"
   "Major mode for Rocket.chat."
   (kill-all-local-variables)
   (use-local-map rocket-chat-mode-map)
-  (setq mode-name "Rocket.chat"
+  (setf mode-name "Rocket.chat"
 	major-mode 'rocket-chat-mode
 	local-addrev-table rocket-chat-mode-abbrev-table)
   ;;(set-syntax-table syntax-table)
@@ -465,3 +467,24 @@ SESSION - Infomation of logined server"
 
 (provide 'rocket-chat)
 ;;; rocket-chat.el ends here
+
+;; (setf im (im-list url test))
+;; im-my
+;; (setf im-my(rc-im-id (car im)))
+
+;; (coerce (assoc-val 'usernames (aref (cdar im) 0)) 'list)
+;; (assoc-val 'ts (aref (cdar im) 0))
+
+;; (car )
+;; (dolist (msg (im-history url test im-my))
+;;   (print (message-message msg)))
+
+;; (defun list-direct-msgs (session)
+;;   "This return alist of name and id.
+
+;; SESSION - rc session"
+;;   (let ((host (rc-session-server session))
+;;	(token (rc-session-token session)))
+;;     (im-list host token)))
+
+;; (defun open-direct-msg ())
