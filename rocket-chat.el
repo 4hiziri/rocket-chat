@@ -334,7 +334,7 @@ CHANNEL - chat room
 	(mapcar #'rc-insert-msg (reverse msgs))
 	(rc-insert-prompt)
 	(goto-char rc-input-marker)
-	(rc-async-update-channel rc-current-session)))))
+	(rc-async-update-channel)))))
 
 (defun rc-update-channel ()
   "Update displayed channel contents.
@@ -380,7 +380,7 @@ CHANNEL - chat room
 ;; Setting for async-update buffer.n
 (setf lexical-binding t)
 (setf interval 2)
-(defun rc-async-update-channel (session)
+(defun rc-async-update-channel ()
   "This update posts in channel of SESSION."
   (async-start ;; :FIXME I think this is not efficient way.
    `(lambda ()
@@ -389,11 +389,10 @@ CHANNEL - chat room
      (with-local-quit
        (when (and (buffer-live-p rc-buffer)
 		  (buffer-local-value 'rc-insert-marker rc-buffer))
-	 (when (rc-need-update-p session)
-	   (rc-update-channel)
-	   (setf session (buffer-local-value 'rc-current-session
-					     (get-buffer rc-buffer-name))))
-	 (rc-async-update-channel session))))))
+	 (with-current-buffer rc-buffer
+	   (when (rc-need-update-p rc-current-session)
+	     (rc-update-channel)))
+	 (rc-async-update-channel))))))
 
 (defun rc-get-user-status (url token user-name)
   "This return user's information.
