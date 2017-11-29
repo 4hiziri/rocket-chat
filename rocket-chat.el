@@ -225,7 +225,7 @@ rc-current-session - Infomation of logined server"
 	    (buffer-read-only nil)
 	    (inhibit-read-only t))
 	(mapcan (lambda (x)
-		  (insert-text-button (channel-name x)
+                  (insert-text-button (channel-name x)
 				      'action (lambda (but)
 						(rc-show-channel-contents
 						 (button-get but 'channel)))
@@ -471,13 +471,29 @@ SESSION - Infomation of logined server"
   (run-hooks 'rocket-chat-mode-hook))
 
 ;;; instant message, im
+(defun rc-open-im-with ())
+
 (defun rc-im-list ()
   (interactive)
   (rc-buffer-init rc-buffer)
   (with-current-buffer rc-buffer
-    (let ((user-list (users-list (rc-session-server rc-current-session)
-				 (rc-session-token rc-current-session))))
-      )))
+    (let ((user-list (remove-if (lambda (x) (string= (rc-user-username x)
+						     (rc-session-username rc-current-session)))
+				(users-list (rc-session-server rc-current-session)
+					    (rc-session-token rc-current-session))))
+	  (buffer-read-only nil)
+	  (inhibit-read-only t))
+      (mapcan (lambda (x)
+		(insert-text-button (rc-user-username x)
+				    'action (lambda (but)
+					      (rc-open-im-with
+					       (button-get but 'user)))
+				    'follow-link t
+				    'help-echo "Open messager to username"
+				    'user x)
+		(insert "\n"))
+	      user-list))
+    (setf buffer-read-only t)))
 
 
 ;; :TODO override key-map C-a for set-top-to-input-marker
