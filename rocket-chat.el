@@ -200,27 +200,36 @@ rc-current-session - Infomation of logined server"
     (push-mark)
     (goto-char (point-max))))
 
+(defun rc-buffer-init (buffer)
+  "Delete whole rc-buffer content ignoring read-only"
+  (with-current-buffer buffer
+    (setf rc-insert-marker nil)
+    (save-excursion
+      (let ((buffer-read-only nil)
+	    (inhibit-read-only t))
+	(remove-text-properties (point-min) (point-max) '(read-only t))
+	(erase-buffer)))
+    (setf buffer-read-only t)))
+
 (defun rc-show-channels ()
   "Make buffer and write channel-list to that buffer.
 
 Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
-  (with-current-buffer rc-buffer
-    (setf rc-insert-marker nil)
+  (rc-buffer-init rc-buffer)
+  (with-current-buffer rc-buffer ;; TODO: extract as macro?
     (save-excursion
       (let ((chs (channels-list (rc-session-server rc-current-session)
 				(rc-session-token rc-current-session)))
 	    (buffer-read-only nil)
 	    (inhibit-read-only t))
-	(remove-text-properties (point-min) (point-max) '(read-only t))
-	(erase-buffer)
 	(mapcan (lambda (x)
 		  (insert-text-button (channel-name x)
 				      'action (lambda (but)
 						(rc-show-channel-contents
 						 (button-get but 'channel)))
-				      'follow-link t		
+				      'follow-link t
 				      'help-echo "Join Channel and display."
 				      'channel x)
 		  (insert "\n"))
@@ -355,7 +364,7 @@ CHANNEL - chat room
 				   t))
 	   (inhibit-read-only t))
       (when (and msgs (> (length msgs) 1))
-	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info	
+	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info
 	(mapcar #'rc-insert-msg (cdr (reverse msgs)))))))
 
 (defun rc-latest-updated-time (session)
@@ -372,7 +381,7 @@ CHANNEL - chat room
    (channel-lm (rc-session-channel session))))
 
 (defun rc-need-update-p (session)
-  "This return whether need to update or not in SESSION."  
+  "This return whether need to update or not in SESSION."
   (let ((latest-msg (rc-latest-updated-time session))
 	(last-time (rc-last-updated-time session)))
     (time-less-p last-time latest-msg)))
@@ -385,8 +394,8 @@ CHANNEL - chat room
   (async-start ;; :FIXME I think this is not efficient way.
    `(lambda ()
       (sleep-for ,interval))
-   (lambda (result)     
-     (with-local-quit       
+   (lambda (result)
+     (with-local-quit
        (when (and (buffer-live-p rc-buffer) (buffer-local-value 'rc-insert-marker rc-buffer))
 	 (when (rc-need-update-p session)
 	   (rc-update-channel)
@@ -445,7 +454,7 @@ SESSION - Infomation of logined server"
   (interactive)
   (let ((input (rc-user-input)))
     (if (not (string= input ""))
-	(progn	  
+	(progn
 	  (rc-post (encode-coding-string input 'utf-8) rc-current-session)
 	  (delete-region rc-input-marker (point-max))
 	  (rc-update-channel))
@@ -460,6 +469,16 @@ SESSION - Infomation of logined server"
 	local-addrev-table rocket-chat-mode-abbrev-table)
   ;;(set-syntax-table syntax-table)
   (run-hooks 'rocket-chat-mode-hook))
+
+;;; instant message, im
+(defun rc-im-list ()
+  (interactive)
+  (rc-buffer-init rc-buffer)
+  (with-current-buffer rc-buffer
+    (let ((user-list (users-list (rc-session-server rc-current-session)
+				 (rc-session-token rc-current-session))))
+      )))
+
 
 ;; :TODO override key-map C-a for set-top-to-input-marker
 
