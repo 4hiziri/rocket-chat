@@ -120,7 +120,7 @@ JSON - message-data formed json."
   updated-at
   time-stamp)
 
-(defun json-to-im (json)
+(defun json-im (json)
   "This convert JSON to struct im."
   (make-rc-im :id (assoc-val '_id json)
 	      :name (assoc-val 'name json)
@@ -748,7 +748,7 @@ ROOMID-P - decide field name"
 		       (auth-headers auth-token)
 		       nil)))
     (when (assoc-val 'success ret)
-      (map 'list (lambda (x) (json-to-im x)) (assoc-val 'ims ret)))))
+      (map 'list (lambda (x) (json-im x)) (assoc-val 'ims ret)))))
 
 (defun im-messages-others (url auth-token roomid)
   (let ((ret (get-json (concat url "/api/v1/im.messages.others")

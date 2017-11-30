@@ -225,7 +225,7 @@ rc-current-session - Infomation of logined server"
 	    (buffer-read-only nil)
 	    (inhibit-read-only t))
 	(mapcan (lambda (x)
-                  (insert-text-button (channel-name x)
+		  (insert-text-button (channel-name x)
 				      'action (lambda (but)
 						(rc-show-channel-contents
 						 (button-get but 'channel)))
@@ -327,7 +327,7 @@ MSG - Rocket.chat's msg struct.
 
 CHANNEL - chat room
 `rc-current-session' - Infomation of logined server"
-  (with-current-buffer rc-buffer
+  (with-current-buffer rc-buffer ;; TODO: extract as macro?
     (let* ((msgs (channels-history (rc-session-server rc-current-session)
 				   (rc-session-token rc-current-session)
 				   (channel-id channel)
@@ -471,7 +471,25 @@ SESSION - Infomation of logined server"
   (run-hooks 'rocket-chat-mode-hook))
 
 ;;; instant message, im
-(defun rc-open-im-with ())
+(defun rc-open-im-with ()
+  (with-current-buffer rc-buffer ;; TODO: extract as macro?
+    (let* ((msgs (im-)
+	    (channels-history (rc-session-server rc-current-session)
+				   (rc-session-token rc-current-session)
+				   (channel-id channel)
+				   :count rc-reading-post-num))
+	   (inhibit-read-only t))
+      (setf buffer-read-only nil)
+      (setf rc-insert-marker (make-marker))
+      (setf rc-input-marker (make-marker))
+      (set-marker rc-insert-marker (point-min) rc-buffer)
+      (when msgs
+	(erase-buffer)
+	(setf (rc-session-channel rc-current-session) channel)
+	(mapcar #'rc-insert-msg (reverse msgs))
+	(rc-insert-prompt)
+	(goto-char rc-input-marker)
+	(rc-async-update-channel rc-current-session)))))
 
 (defun rc-im-list ()
   (interactive)
