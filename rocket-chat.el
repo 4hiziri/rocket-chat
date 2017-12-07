@@ -270,6 +270,15 @@ TIME-STRING - time represented by rc."
 	(add-text-properties rc-insert-marker (point) (append proparties '(front-sticky t rear-nonsticky t read-only t)))
 	(set-marker rc-insert-marker (point))))))
 
+(defun rc-shrink-name (name)
+  "Shrink NAME by LIMIT."
+  (if (< (length name) 10)
+      name
+    (concatenate 'string
+		 (subseq name 0 4)
+		 "~"
+		 (reverse (subseq (reverse name) 0 5)))))
+
 (defun rc-insert-msg (msg)
   "Write MSG to buffer.
 
@@ -279,7 +288,7 @@ MSG - Rocket.chat's msg struct.
   (with-current-buffer rc-buffer
     (save-excursion
       (goto-char rc-insert-marker)
-      (let ((name (rc-user-username (setf test (message-user-info msg))))
+      (let ((name (rc-shrink-name (rc-user-username (message-user-info msg))))
 	    (time-str (concat "(" (rc-format-time (rc-time-to-local-time (message-time-stamp msg))) ")"))
 	    (old-point (point))
 	    (inhibit-read-only t))
