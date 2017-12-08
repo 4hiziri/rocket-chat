@@ -350,22 +350,32 @@ CHANNEL - chat room
 
 `rc-current-session' - Infomation of logined server"
   (interactive)
-  (with-current-buffer rc-buffer
-    (let* ((last (rc-last-updated-time rc-current-session))
-	   (last-msg (get-text-property (1- rc-insert-marker) 'message-info))
-	   (msgs (channels-history (rc-session-server rc-current-session)
-				   (rc-session-token rc-current-session)
-				   (channel-id (rc-session-channel rc-current-session))
-				   :oldest (rc-local-time-to-rc-time last)
-				   :count rc-reading-post-num))
-	   (channel (channels-info (rc-session-server rc-current-session)
-				   (rc-session-token rc-current-session)
-				   (channel-id (rc-session-channel rc-current-session))
-				   t))
-	   (inhibit-read-only t))
-      (when (and msgs (> (length msgs) 1))
-	(setf (rc-session-channel rc-current-session) channel) ;; update-channel-info
-	(mapcar #'rc-insert-msg (cdr (reverse msgs)))))))
+  (labels ((inner-remove-until (pred list)
+			       (if (or (funcall pred (car list))
+				       (null list))
+				   list
+				 (inner-remove-until pred (cdr list)))))
+    (with-current-buffer rc-buffer
+      (let* ((last (rc-last-updated-time rc-current-session))
+	     (last-msg (get-text-property (1- rc-insert-marker) 'message-info))
+	     (msgs (channels-history (rc-session-server rc-current-session)
+				     (rc-session-token rc-current-session)
+				     (channel-id (rc-session-channel rc-current-session))
+				     :oldest (rc-local-time-to-rc-time last) ;; TODO: need post-id?
+				     :count rc-reading-post-num)) ;; TODO: resarch count
+	     (channel (channels-info (rc-session-server rc-current-session)
+				     (rc-session-token rc-current-session)
+				     (channel-id (rc-session-channel rc-current-session))
+				     t))
+	     (inhibit-read-only t))
+	;; FIX: if two or more post was done at the same time, update could not work properly.
+	(when (and msgs (> (length msgs) 1))
+	  (setf (rc-session-channel rc-current-session) channel) ;; update-channel-info
+	  (loop for msg in (cdr (inner-remove-until
+				 (lambda (x) (equal (message-id x)
+						    (message-id last-msg)))
+				 (reverse msgs)))
+		do (rc-insert-msg msg)))))))
 
 (defun rc-latest-updated-time (session)
   "This return time of CHANNEL's last post on SESSION."
@@ -450,13 +460,14 @@ SESSION - Infomation of logined server"
 		 (rc-session-channel session)
 		 text))
 
+;; TODO: encode
 (defun rc-post-line ()
   "This posts line at input-area to connected server."
   (interactive)
   (let ((input (rc-user-input)))
     (if (not (string= input ""))
 	(progn
-	  (rc-post (encode-coding-string input 'utf-8) rc-current-session)
+	  ;; (rc-post (encode-coding-string input 'utf-8) rc-current-session)
 	  (delete-region rc-input-marker (point-max))
 	  (rc-update-channel))
       (message "Ignoring blank line."))))
