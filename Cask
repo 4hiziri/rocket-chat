@@ -3,7 +3,6 @@
 
 (package-file "rocket-chat")
 
-
 (depends-on "cl-lib")
 (depends-on "request")
 (depends-on "promise")
