@@ -1,6 +1,6 @@
 ;;; rocket-chat.el --- Emacs client for Rocket.chat
 
-;; Copyright 2017 Takagi Seiya
+;; Copyright 2017 4hiziri
 ;;
 ;; Author: meirvg@gmail.com
 ;; Version: 0.0.3
@@ -467,7 +467,7 @@ SESSION - Infomation of logined server"
   (let ((input (rc-user-input)))
     (if (not (string= input ""))
 	(progn
-	  ;; (rc-post (encode-coding-string input 'utf-8) rc-current-session)
+	  (rc-post (encode-coding-string input 'utf-8) rc-current-session)
 	  (delete-region rc-input-marker (point-max))
 	  (rc-update-channel))
       (message "Ignoring blank line."))))
