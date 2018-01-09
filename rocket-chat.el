@@ -350,7 +350,7 @@ CHANNEL - chat room
 
 `rc-current-session' - Infomation of logined server"
   (interactive)
-  (labels ((inner-remove-until (pred list)
+  (cl-labels ((inner-remove-until (pred list)
 			       (if (or (funcall pred (car list))
 				       (null list))
 				   list
