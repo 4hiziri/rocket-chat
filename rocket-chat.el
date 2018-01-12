@@ -19,6 +19,8 @@
 
 (require 'rocket-chat-api)
 
+(setf lexical-binding t)
+
 ;;; application
 
 (defgroup rocket-chat nil
@@ -343,7 +345,7 @@ CHANNEL - chat room
 	(mapcar #'rc-insert-msg (reverse msgs))
 	(rc-insert-prompt)
 	(goto-char rc-input-marker)
-	(rc-async-update-channel)))))
+	(rc-update-channel-daemon)))))
 
 (defun rc-update-channel ()
   "Update displayed channel contents.
@@ -398,9 +400,8 @@ CHANNEL - chat room
     (time-less-p last-time latest-msg)))
 
 ;; Setting for async-update buffer.n
-(setf lexical-binding t)
 (setf interval 2)
-(defun rc-async-update-channel ()
+(defun rc-update-channel-daemon ()
   "This update posts in channel of SESSION."
   (async-start ;; :FIXME I think this is not efficient way.
    `(lambda ()
@@ -412,7 +413,7 @@ CHANNEL - chat room
 	 (with-current-buffer rc-buffer
 	   (when (rc-need-update-p rc-current-session)
 	     (rc-update-channel)))
-	 (rc-async-update-channel))))))
+	 (rc-update-channel-daemon))))))
 
 (defun rc-get-user-status (url token user-name)
   "This return user's information.
