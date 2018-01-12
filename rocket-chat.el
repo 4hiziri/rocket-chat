@@ -358,6 +358,7 @@ CHANNEL - chat room
     (with-current-buffer rc-buffer
       (let* ((last (rc-last-updated-time rc-current-session))
 	     (last-msg (get-text-property (1- rc-insert-marker) 'message-info))
+	     ;; late 0.48
 	     (msgs (channels-history (rc-session-server rc-current-session)
 				     (rc-session-token rc-current-session)
 				     (channel-id (rc-session-channel rc-current-session))
@@ -467,8 +468,10 @@ SESSION - Infomation of logined server"
   (let ((input (rc-user-input)))
     (if (not (string= input ""))
 	(progn
+	  ;; too late, 0.48 sec
 	  (rc-post (encode-coding-string input 'utf-8) rc-current-session)
 	  (delete-region rc-input-marker (point-max))
+	  ;; late!! 0.91 sec
 	  (rc-update-channel))
       (message "Ignoring blank line."))))
 
