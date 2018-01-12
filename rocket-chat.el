@@ -468,7 +468,6 @@ SESSION - Infomation of logined server"
   (let ((input (rc-user-input)))
     (if (not (string= input ""))
 	(progn
-	  ;; too late, 0.48 sec
 	  (rc-post (encode-coding-string input 'utf-8) rc-current-session)
 	  (delete-region rc-input-marker (point-max))
 	  ;; late!! 0.91 sec

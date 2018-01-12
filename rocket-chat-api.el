@@ -10,6 +10,8 @@
 ;;; Commentary:
 ;;; Code:
 
+;; TODO: delay and async fetch
+
 (eval-when-compile
   (require 'cl))
 (require 'request)
@@ -153,7 +155,8 @@ JSON - message-data formed json."
 	     :parser 'json-read
 	     :headers (cons '("Content-type" . "application/json") header)
 	     :success (exec-form (setq ret data))
-	     :sync t)
+	     ;; :sync t
+	     )
     ret))
 
 (defun get-json (url header arg-json-alist)
@@ -163,7 +166,8 @@ JSON - message-data formed json."
 	     :parser 'json-read
 	     :headers header
 	     :success (exec-form (setq ret data))
-	     :sync t)
+	     ;; :sync t
+	     )
     ret))
 
 ;;; api
@@ -753,7 +757,7 @@ ROOMID-P - decide field name"
 			(auth-headers auth-token)
 			(list (cons :roomId (channel-id channel))
 			      (cons :channel (channel-name channel))
-			      (cons :text text)))))
+			      (cons :text text)))))   
     (when (assoc-val 'success ret)
       (assoc-val 'ts ret))))
 
