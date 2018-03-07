@@ -1,7 +1,9 @@
 (source melpa)
 (source gnu)
 
-(package-file "rocket-chat")
+(package "rocket-chat" "0.0.6"
+         "Emacs client for Rocket.chat.")
+
 
 (development
  (depends-on "cl-lib")
