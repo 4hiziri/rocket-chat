@@ -347,6 +347,10 @@ CHANNEL - chat room
 	(goto-char rc-input-marker)
 	(rc-update-channel-daemon)))))
 
+;; (async-defun rc-async-update-channel ()
+;;   (interactive)
+;;   (await (promise:make-process (lambda () rc-update-channel))))
+
 (defun rc-update-channel ()
   "Update displayed channel contents.
 
@@ -371,6 +375,7 @@ CHANNEL - chat room
 				     (channel-id (rc-session-channel rc-current-session))
 				     t))
 	     (inhibit-read-only t))
+	;; TODO: Fix API to async
 	;; FIX: if two or more post was done at the same time, update could not work properly.
 	(when (and msgs (> (length msgs) 1))
 	  (setf (rc-session-channel rc-current-session) channel) ;; update-channel-info
