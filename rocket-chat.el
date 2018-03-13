@@ -12,7 +12,6 @@
 
 (eval-when-compile
   (require 'cl))
-(require 'cl-lib)
 (require 'promise)
 (require 'async-await)
 (require 'time)

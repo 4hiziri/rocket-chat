@@ -16,7 +16,6 @@
   (require 'cl))
 (require 'request)
 (require 'json)
-(require 'cl-lib)
 
 ;;; struct
 (defstruct auth-token
