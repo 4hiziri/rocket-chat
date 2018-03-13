@@ -3,9 +3,9 @@
 ;; Copyright 2017 Takagi Seiya
 ;;
 ;; Author: meirvg@gmail.com
-;; Version: 0.0.1
 ;; Keywords: Rocket.chat
-;; X-URL: not distributed yet
+;; URL: https://github.com/4hiziri/rocket-chat.git
+;; Package-Requires: ((cl-lib "1.0") (json "1.4") (request "20170131.1747"))
 
 ;;; Commentary:
 ;;; Code:
@@ -13,7 +13,7 @@
 ;; TODO: delay and async fetch
 
 (eval-when-compile
-  (require 'cl))
+  (require 'cl-lib))
 (require 'request)
 (require 'json)
 (require 'cl-lib)

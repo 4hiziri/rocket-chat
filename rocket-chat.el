@@ -3,15 +3,15 @@
 ;; Copyright 2017 4hiziri
 ;;
 ;; Author: meirvg@gmail.com
-;; Version: 0.0.3
-;; Keywords: Rocket.chat
-;; X-URL: not distributed yet
+;; Keywords: Rocket.chat, emacs
+;; URL: https://github.com/4hiziri/rocket-chat.git
+;; Package-Requires: ((cl-lib "1.0") (promise "20170215.2204") (async-await "20170208.350")e)
 
 ;;; Commentary:
 ;;; Code:
 
 (eval-when-compile
-  (require 'cl))
+  (require 'cl-lib))
 (require 'cl-lib)
 (require 'promise)
 (require 'async-await)
