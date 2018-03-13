@@ -11,7 +11,7 @@
 ;;; Code:
 
 (eval-when-compile
-  (require 'cl-lib))
+  (require 'cl))
 (require 'cl-lib)
 (require 'promise)
 (require 'async-await)

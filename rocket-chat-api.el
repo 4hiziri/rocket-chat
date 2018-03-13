@@ -13,7 +13,7 @@
 ;; TODO: delay and async fetch
 
 (eval-when-compile
-  (require 'cl-lib))
+  (require 'cl))
 (require 'request)
 (require 'json)
 (require 'cl-lib)
