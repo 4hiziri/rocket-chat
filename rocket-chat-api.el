@@ -146,7 +146,25 @@ JSON - message-data formed json."
       "true"
     "false"))
 
+(defun json-request (url arg-json-alist &rest settings)  
+  (request url
+	   :type (plist-get settings :type)
+	   :params (plist-get settings :params)
+	   :data (json-encode-alist arg-json-alist)           
+	   :files (plist-get settings :files)
+	   :parser 'json-read
+	   :headers (plist-get settings :headers)
+	   :success (plist-get settings :success)
+	   :error (plist-get settings :error)
+	   :complete (plist-get settings :complete)
+	   :timeout (plist-get settings :timeout)
+	   :status-code (plist-get settings :status-code)
+	   :sync (plist-get settings :sync)))
+
 ;; TODO: use request callback for async
+;; Instead of using return-val, set callback function to take value directly
+;; using request in each method is better?
+;; make wrapper
 (defun post-json (url header arg-json-alist)
   (let ((ret nil))
     (request url
@@ -155,8 +173,8 @@ JSON - message-data formed json."
 	     :parser 'json-read
 	     :headers (cons '("Content-type" . "application/json") header)
 	     :success (exec-form (setq ret data))
-	     :sync t
-	     )
+             :timeout 3
+	     :sync t)
     ret))
 
 (defun get-json (url header arg-json-alist)
@@ -166,9 +184,13 @@ JSON - message-data formed json."
 	     :parser 'json-read
 	     :headers header
 	     :success (exec-form (setq ret data))
-	     :sync t
-	     )
+	     :timeout 3
+	     :sync t)
     ret))
+
+;; TODO: make fetch method use key value
+;; nil means returning value immediately, lambda means callback
+;; args -> &key callback sync ?
 
 ;;; api
 (defun info (url)
