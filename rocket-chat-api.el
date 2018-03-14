@@ -146,6 +146,7 @@ JSON - message-data formed json."
       "true"
     "false"))
 
+;; TODO: use request callback for async
 (defun post-json (url header arg-json-alist)
   (let ((ret nil))
     (request url
@@ -154,7 +155,7 @@ JSON - message-data formed json."
 	     :parser 'json-read
 	     :headers (cons '("Content-type" . "application/json") header)
 	     :success (exec-form (setq ret data))
-	     ;; :sync t
+	     :sync t
 	     )
     ret))
 
@@ -165,7 +166,7 @@ JSON - message-data formed json."
 	     :parser 'json-read
 	     :headers header
 	     :success (exec-form (setq ret data))
-	     ;; :sync t
+	     :sync t
 	     )
     ret))
 
@@ -220,7 +221,7 @@ PASSWORD - user's password"
 	   :parser 'json-read
 	   :headers (cons '("Content-type" . "application/json")
 			  (auth-headers auth-token))
-	   :data (json-encode-alist (reg-info-to-alist register-info)) 
+	   :data (json-encode-alist (reg-info-to-alist register-info))
 	   :success (exec-form (setq ret data))
 	   :sync t)
     ret))
@@ -231,7 +232,7 @@ PASSWORD - user's password"
 			(if userid-p
 			    `(("userId" . ,user-id))
 			  `(("username" . ,user-id))))))
-    (if (assoc-val 'success ret)	
+    (if (assoc-val 'success ret)
 	(let ((data (assoc-val 'data ret)))
 	  (make-auth-token :user-id (assoc-val 'userId data) :token (assoc-val 'authToken data))))))
 
@@ -343,7 +344,7 @@ USERID-P - This decide user-id is user-id or user-name."
 		  alist)))
 
 ;; :TODO test
-(defun channels-add-moderator (url auth-token roomid userid)  
+(defun channels-add-moderator (url auth-token roomid userid)
   (let ((ret (post-json (concat url "/api/v1/channels.addModerator")
 		(auth-headers auth-token)
 		(list (cons :roomId roomid)
@@ -405,9 +406,9 @@ UNREADS - Whether the amount of unreads should be included."
 					(when latest (cons "latest" latest))
 					(when oldest (cons "oldest" oldest))
 					;; :TODO need convert t,nil to true,false
-					(when inclusive (cons "inclusive" inclusive)) 
+					(when inclusive (cons "inclusive" inclusive))
 					(when count (cons "count" count))
-					(when unreads (cons "unreads" unreads)))))))    
+					(when unreads (cons "unreads" unreads)))))))
     (when (assoc-val 'success ret)
       (map 'list #'json-to-msg (assoc-val 'messages ret)))))
 
@@ -547,7 +548,7 @@ ROOMID-P - decide field name"
 	       alist)))
 
 ;; :TODO test
-(defun groups-add-moderator (url auth-token roomid userid)  
+(defun groups-add-moderator (url auth-token roomid userid)
   (let ((ret (post-json (concat url "/api/v1/groups.addModerator")
 		(auth-headers auth-token)
 		(list (cons :roomId roomid)
@@ -756,7 +757,7 @@ ROOMID-P - decide field name"
 			(auth-headers auth-token)
 			(list (cons :roomId (channel-id channel))
 			      (cons :channel (channel-name channel))
-			      (cons :text text)))))   
+			      (cons :text text)))))
     (when (assoc-val 'success ret)
       (assoc-val 'ts ret))))
 

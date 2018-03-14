@@ -162,7 +162,6 @@ PASSWORD - login password"
   "This allow you to login to URL."
   (interactive (rc-get-input-args))
   (setf rc-buffer (get-buffer-create rc-buffer-name))
-  (pop-to-buffer rc-buffer)
   (with-current-buffer rc-buffer
     (rocket-chat-mode)
     (add-hook 'pre-command-hook 'rc-set-marker-at-prompt)
@@ -178,7 +177,8 @@ PASSWORD - login password"
 		    (message "Failed..")))
       (if (rc-session-token rc-current-session)
 	  (success)
-	(fail)))))
+	  (fail))))
+  (pop-to-buffer rc-buffer))
 
 (defun rc-logout ()
   "Logout from server.
