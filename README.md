@@ -3,7 +3,7 @@ Emacs Rocket.chat client.
 
 ## Installation
 ### Cask
-Please Add line to Cask file.
+Please add below dependency to Cask file.
 ```
 (depends-on "rocket-chat" :git "https://github.com/4hiziri/rocket-chat")
 ```
@@ -11,13 +11,12 @@ Please Add line to Cask file.
 ## Usage
 `M-x rocket-chat`
 
-You need enter server url, user name and password.
-Then you can see some channels. 
-You can enter channel by C-m on channel name.
+You need enter server url (like https://example.com), user name and password.
+Then channels list shows up.
 
-Key bind  
+Key bind
 + `C-c C-l`
-  - Return channel list.
+  - Return to channels list.
 + `C-c C-n`
   - If new post exists, fetch it.
 + `C-c C-u`
