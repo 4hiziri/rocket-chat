@@ -210,9 +210,7 @@ rc-current-session - Infomation of logined server"
   (with-current-buffer rc-buffer
     (setf rc-insert-marker nil)
     (save-excursion
-      (let ((chs (channels-list (rc-session-server rc-current-session)
-				(rc-session-token rc-current-session)))
-	    (buffer-read-only nil)
+      (let ((buffer-read-only nil)
 	    (inhibit-read-only t))
 	(remove-text-properties (point-min) (point-max) '(read-only t))
 	(erase-buffer)
@@ -225,7 +223,8 @@ rc-current-session - Infomation of logined server"
 				      'help-echo "Join Channel and display."
 				      'channel x)
 		  (insert "\n"))
-		chs)))
+		(channels-list (rc-session-server rc-current-session)
+			       (rc-session-token rc-current-session)))))
     (setf buffer-read-only t)))
 
 (defun rc-yourself-p (name session)
