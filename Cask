@@ -1,7 +1,7 @@
 (source melpa)
 (source gnu)
 
-(package "rocket-chat" "0.0.6"
+(package "rocket-chat" "0.1.0"
          "Emacs client for Rocket.chat.")
 
 

@@ -10,12 +10,13 @@
 ;;; Commentary:
 ;;; Code:
 
-;; TODO: delay and async fetch
-
 (eval-when-compile
   (require 'cl))
 (require 'request)
 (require 'json)
+(require 'async-await)
+
+(setq lexical-binding t)
 
 ;;; struct
 (defstruct auth-token
@@ -146,13 +147,14 @@ JSON - message-data formed json."
       "true"
     "false"))
 
-(defun json-request (url arg-json-alist &rest settings)  
+;; TODO: use request directly
+(defun json-request (url &rest settings)
   (request url
 	   :type (plist-get settings :type)
 	   :params (plist-get settings :params)
-	   :data (json-encode-alist arg-json-alist)           
+	   :data (plist-get settings :data)
 	   :files (plist-get settings :files)
-	   :parser 'json-read
+	   ;; :parser 'json-read
 	   :headers (plist-get settings :headers)
 	   :success (plist-get settings :success)
 	   :error (plist-get settings :error)
@@ -161,7 +163,7 @@ JSON - message-data formed json."
 	   :status-code (plist-get settings :status-code)
 	   :sync (plist-get settings :sync)))
 
-;; TODO: use request callback for async
+;; TODO: use request callback for async?
 ;; Instead of using return-val, set callback function to take value directly
 ;; using request in each method is better?
 ;; make wrapper
@@ -173,7 +175,7 @@ JSON - message-data formed json."
 	     :parser 'json-read
 	     :headers (cons '("Content-type" . "application/json") header)
 	     :success (exec-form (setq ret data))
-             :timeout 3
+	     :timeout 3
 	     :sync t)
     ret))
 
@@ -183,9 +185,10 @@ JSON - message-data formed json."
 	     :params arg-json-alist
 	     :parser 'json-read
 	     :headers header
-	     :success (exec-form (setq ret data))
+	     :success (exec-form (setq ret data)) ;; FIXME: bad method
 	     :timeout 3
-	     :sync t)
+	     :sync t
+	     )
     ret))
 
 ;; TODO: make fetch method use key value
@@ -434,6 +437,22 @@ UNREADS - Whether the amount of unreads should be included."
     (when (assoc-val 'success ret)
       (map 'list #'json-to-msg (assoc-val 'messages ret)))))
 
+(defun* async-channels-history (url auth-token roomid &key latest oldest inclusive count unreads callback)
+  (request (concat url "/api/v1/channels.history")
+	   :type "GET"
+	   :parser 'json-read
+	   :params (remove-if #'null
+			      (list (cons "roomId" roomid)
+				    (when latest (cons "latest" latest))
+				    (when oldest (cons "oldest" oldest))
+				    ;; :TODO need convert t,nil to true,false
+				    (when inclusive (cons "inclusive" inclusive))
+				    (when count (cons "count" count))
+				    (when unreads (cons "unreads" unreads))))
+	   :headers (auth-headers auth-token)
+	   :success callback
+	   :timeout 5))
+
 (defun channels-info (url auth-token room-name &optional roomid-p)
   "This return channel's information.
 
@@ -448,6 +467,17 @@ ROOMID-P - decide field name"
 			       (cons "roomName" room-name))))))
     (when (assoc-val 'success ret)
       (json-channel (assoc-val 'channel ret)))))
+
+(defun async-channels-info (url auth-token room-name callback &optional roomid-p)
+  (request (concat url "/api/v1/channels.info")
+	   :type "GET"
+	   :parser 'json-read
+	   :params (list (if roomid-p
+			     (cons "roomId" room-name)
+			   (cons "roomName" room-name)))
+	   :headers (auth-headers auth-token)
+	   :success callback
+	   :timeout 5))
 
 (defun channels-invite (url auth-token roomid userid)
   (let ((ret (post-json (concat url "/api/v1/channels.invite")

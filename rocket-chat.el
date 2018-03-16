@@ -52,7 +52,7 @@
 (defvar rocket-chat-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-m" 'rc-post-line)
-    (define-key map "\C-c\C-n" 'rc-update-channel)
+    (define-key map "\C-c\C-n" 'async-rc-update-channel)
     (define-key map "\C-c\C-l" 'rc-show-channels)
     (define-key map "\C-c\C-u" 'rc-show-user-list)
     map)
@@ -169,12 +169,12 @@ PASSWORD - login password"
 	  (rc-login server username password))
     (cl-flet ((success ()
 		       (goto-char (point-min))
-		       (message "Successed!")
+		       (message "rc: Login Successed")
 		       (rc-show-channels))
 	      (fail ()
 		    (setf rc-current-session nil) ;; :TODO clear state function needed
 		    (kill-buffer rc-buffer)
-		    (message "Failed..")))
+		    (message "rc: Login Failed")))
       (if (rc-session-token rc-current-session)
 	  (success)
 	  (fail))))
@@ -345,20 +345,16 @@ CHANNEL - chat room
 	(goto-char rc-input-marker)
 	(rc-update-channel-daemon)))))
 
-;; (async-defun rc-async-update-channel ()
-;;   (interactive)
-;;   (await (promise:make-process (lambda () rc-update-channel))))
-
 (defun rc-update-channel ()
   "Update displayed channel contents.
 
 `rc-current-session' - Infomation of logined server"
   (interactive)
   (cl-labels ((inner-remove-until (pred list)
-			       (if (or (funcall pred (car list))
-				       (null list))
-				   list
-				 (inner-remove-until pred (cdr list)))))
+				  (if (or (funcall pred (car list))
+					  (null list))
+				      list
+				    (inner-remove-until pred (cdr list)))))
     (with-current-buffer rc-buffer
       (let* ((last (rc-last-updated-time rc-current-session))
 	     (last-msg (get-text-property (1- rc-insert-marker) 'message-info))
@@ -366,22 +362,69 @@ CHANNEL - chat room
 	     (msgs (channels-history (rc-session-server rc-current-session)
 				     (rc-session-token rc-current-session)
 				     (channel-id (rc-session-channel rc-current-session))
-				     :oldest (rc-local-time-to-rc-time last) ;; TODO: need post-id?
-				     :count rc-reading-post-num)) ;; TODO: resarch count
-	     (channel (channels-info (rc-session-server rc-current-session)
-				     (rc-session-token rc-current-session)
-				     (channel-id (rc-session-channel rc-current-session))
-				     t))
+				     ;; TODO: need post-id?
+				     :oldest (rc-local-time-to-rc-time last)
+				     ;; TODO: resarch count
+				     :count rc-reading-post-num))
 	     (inhibit-read-only t))
-	;; TODO: Fix API to async
-	;; FIX: if two or more post was done at the same time, update could not work properly.
+	;; FIXME: If multiple posts exists at the same time, update dosen't work.
 	(when (and msgs (> (length msgs) 1))
-	  (setf (rc-session-channel rc-current-session) channel) ;; update-channel-info
 	  (loop for msg in (cdr (inner-remove-until
 				 (lambda (x) (equal (message-id x)
 						    (message-id last-msg)))
 				 (reverse msgs)))
 		do (rc-insert-msg msg)))))))
+
+
+(defun async-rc-update-channel ()
+  "Update async.
+
+`rc-current-session' - Infomation of logined server"
+  (interactive)
+  (with-current-buffer rc-buffer
+    (async-channels-history (rc-session-server rc-current-session)
+			    (rc-session-token rc-current-session)
+			    (channel-id (rc-session-channel rc-current-session))
+			    ;; fetch newer post
+			    :oldest (rc-local-time-to-rc-time
+				     (rc-last-updated-time rc-current-session))
+			    :count rc-reading-post-num
+			    :callback
+			    (function*
+			     (lambda (&key data &allow-other-keys)
+			       ;; to remove older post
+			       (cl-labels ((inner-remove-until (pred list)
+							       (if (or (funcall pred (car list))
+								       (null list))
+								   list
+								 (inner-remove-until pred (cdr list)))))
+				 (let ((last-msg (get-text-property (1- rc-insert-marker) 'message-info))
+				       (msgs (map 'list #'json-to-msg (assoc-val 'messages data)))
+				       (inhibit-read-only nil))
+				   (when (assoc-val 'success data)
+				     (when (> (length msgs) 1)
+				       (dolist (msg (cdr (inner-remove-until
+							  (lambda (x)
+							    (equal (message-id x)
+								   (message-id last-msg)))
+							  (reverse msgs))))
+					 (rc-insert-msg msg)))))))))))
+
+;; TODO: make configurable
+(setf interval 2)
+(defun rc-update-channel-daemon ()
+  "This update posts in channel of SESSION."
+  (interactive)
+  (async-start
+   `(lambda ()
+      (sleep-for ,interval))
+   (lambda (result)
+     (with-local-quit
+       (when (and (buffer-live-p rc-buffer)
+		  (buffer-local-value 'rc-insert-marker rc-buffer))
+	 (with-current-buffer rc-buffer
+	   (async-rc-update-channel))
+	 (rc-update-channel-daemon))))))
 
 (defun rc-latest-updated-time (session)
   "This return time of CHANNEL's last post on SESSION."
@@ -395,28 +438,6 @@ CHANNEL - chat room
   "This return latest time of updated posts in SESSION."
   (rc-time-to-local-time
    (channel-lm (rc-session-channel session))))
-
-(defun rc-need-update-p (session)
-  "This return whether need to update or not in SESSION."
-  (let ((latest-msg (rc-latest-updated-time session))
-	(last-time (rc-last-updated-time session)))
-    (time-less-p last-time latest-msg)))
-
-;; Setting for async-update buffer.n
-(setf interval 2)
-(defun rc-update-channel-daemon ()
-  "This update posts in channel of SESSION."
-  (async-start ;; :FIXME I think this is not efficient way.
-   `(lambda ()
-      (sleep-for ,interval))
-   (lambda (result)
-     (with-local-quit
-       (when (and (buffer-live-p rc-buffer)
-		  (buffer-local-value 'rc-insert-marker rc-buffer))
-	 (with-current-buffer rc-buffer
-	   (when (rc-need-update-p rc-current-session)
-	     (rc-update-channel)))
-	 (rc-update-channel-daemon))))))
 
 (defun rc-get-user-status (url token user-name)
   "This return user's information.
@@ -476,7 +497,7 @@ SESSION - Infomation of logined server"
 	  (delete-region rc-input-marker (point-max))
 	  ;; late!! 0.91 sec
 	  (rc-update-channel))
-      (message "Ignoring blank line."))))
+      (message "rc: Ignoring blank line."))))
 
 (defun rocket-chat-mode ()
   "Major mode for Rocket.chat."
