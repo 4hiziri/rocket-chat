@@ -1,2 +1,0 @@
-fix name-sending bug and channel lost
-
