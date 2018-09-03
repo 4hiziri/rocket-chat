@@ -333,7 +333,8 @@ USERID-P - This decide user-id is user-id or user-name."
   (cl-flet ((alist (reg-info)
 		(list (cons :email (reg-info-email reg-info))
 		      (cons :pass (reg-info-password reg-info))
-		      (cons :name (reg-info-name reg-info)))))
+		      (cons :name (reg-info-name reg-info))
+		      (cons :username (reg-info-username reg-info)))))   
     (let ((ret (post-json (concat url "/api/v1/users.register")
 			  nil
 			  (alist reg-info))))
