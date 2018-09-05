@@ -10,6 +10,8 @@
 ;;; Commentary:
 ;;; Code:
 
+;;; TODO: Update API. This is legacy
+
 (eval-when-compile
   (require 'cl))
 (require 'request)
@@ -179,6 +181,7 @@ JSON - message-data formed json."
 	     :sync t)
     ret))
 
+;; TODO: type conversion. t => "true", nil => "false"
 (defun get-json (url header arg-json-alist)
   (let ((ret nil))
     (request url
@@ -194,6 +197,16 @@ JSON - message-data formed json."
 ;; TODO: make fetch method use key value
 ;; nil means returning value immediately, lambda means callback
 ;; args -> &key callback sync ?
+
+;;; Miscellaneous Information
+(defun statistics (auth-token &optional refresh)
+  "TOKEN - auth token
+This return Rocket.Chat Server's statistics information"
+  (let ((ret (get-json (url-concat url "/api/v1/statistics")
+		       (auth-headers auth-token)
+		       (list (cons "refresh" (if refresh "true" "false"))))))
+    (if (assoc-val 'success ret)
+        (car ret))))
 
 ;;; api
 (defun info (url)
@@ -506,10 +519,11 @@ ROOMID-P - decide field name"
 		       nil)))
     ret))
 
-(defun channels-list (url auth-token)
+(defun channels-list (url auth-token &optional count)
   (let ((ret (get-json (concat url "/api/v1/channels.list")
 		       (auth-headers auth-token)
-		       nil)))
+		       (if count
+			   (list (cons "count" count))))))
     (when (assoc-val 'success ret)
       (map 'list #'json-channel (assoc-val 'channels ret)))))
 
