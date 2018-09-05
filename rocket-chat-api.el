@@ -198,23 +198,30 @@ JSON - message-data formed json."
 ;; nil means returning value immediately, lambda means callback
 ;; args -> &key callback sync ?
 
+;;; api
+
 ;;; Miscellaneous Information
-(defun statistics (auth-token &optional refresh)
+(defun rcapi-info (url)
+  "URL - server url.
+This function return server-info"
+  (let ((ret (get-json (url-concat url "/api/v1/info") nil nil)))
+    (if (assoc-val 'success ret)
+	(list (assoc 'info ret) (assoc 'commit ret)))))
+
+(defun rcapi-directory ())
+
+(defun rcapi-spotlight ())
+
+(defun rcapi-statistics (auth-token &optional refresh)
   "TOKEN - auth token
 This return Rocket.Chat Server's statistics information"
   (let ((ret (get-json (url-concat url "/api/v1/statistics")
 		       (auth-headers auth-token)
 		       (list (cons "refresh" (if refresh "true" "false"))))))
     (if (assoc-val 'success ret)
-        (car ret))))
+	(car ret))))
 
-;;; api
-(defun info (url)
-  "URL - server url.
-This function return server-info"
-  (let ((ret (get-json (url-concat url "/api/v1/info") nil nil)))
-    (if (assoc-val 'success ret)
-	(list (assoc 'info ret) (assoc 'commit ret)))))
+(defun rcapi-statistics-list)
 
 (defun login (url username password)
   "URL - server url.
@@ -347,7 +354,7 @@ USERID-P - This decide user-id is user-id or user-name."
 		(list (cons :email (reg-info-email reg-info))
 		      (cons :pass (reg-info-password reg-info))
 		      (cons :name (reg-info-name reg-info))
-		      (cons :username (reg-info-username reg-info)))))   
+		      (cons :username (reg-info-username reg-info)))))
     (let ((ret (post-json (concat url "/api/v1/users.register")
 			  nil
 			  (alist reg-info))))

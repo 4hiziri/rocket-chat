@@ -202,8 +202,8 @@ rc-current-session - Infomation of logined server"
     (goto-char (point-max))))
 
 (defun get-channels-count (session)
-  (let ((stat (statistics (rc-session-token session))))
-    (assoc-val 'totalChannels (cdr (statistics token)))))
+  (let ((stat (rcapi-statistics (rc-session-token session))))
+    (assoc-val 'totalChannels (cdr stat))))
 
 (defun rc-show-channels ()
   "Make buffer and write channel-list to that buffer.
