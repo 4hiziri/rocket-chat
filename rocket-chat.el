@@ -201,6 +201,10 @@ rc-current-session - Infomation of logined server"
     (push-mark)
     (goto-char (point-max))))
 
+(defun get-channels-count (session)
+  (let ((stat (statistics (rc-session-token session))))
+    (assoc-val 'totalChannels (cdr (statistics token)))))
+
 (defun rc-show-channels ()
   "Make buffer and write channel-list to that buffer.
 
@@ -224,7 +228,8 @@ rc-current-session - Infomation of logined server"
 				      'channel x)
 		  (insert "\n"))
 		(channels-list (rc-session-server rc-current-session)
-			       (rc-session-token rc-current-session)))))
+			       (rc-session-token rc-current-session)
+			       (get-channels-count rc-current-session)))))
     (setf buffer-read-only t)))
 
 (defun rc-yourself-p (name session)
