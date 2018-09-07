@@ -155,8 +155,10 @@ SERVER - this will accessed by user
 USERNAME - login user name
 PASSWORD - login password"
   (let ((token (login server username password)))
-    (when token
-      (make-rc-session :server server :username username :token token))))
+    (if token
+	(make-rc-session :server server :username username :token token)
+      (progn (message "Login Failed!: %s@%s" username server)
+	     nil))))
 
 (defun* rocket-chat (&key server username password)
   "This allow you to login to URL."
@@ -202,8 +204,10 @@ rc-current-session - Infomation of logined server"
     (goto-char (point-max))))
 
 (defun get-channels-count (session)
-  (let ((stat (statistics (rc-session-token session))))
-    (assoc-val 'totalChannels (cdr (statistics token)))))
+  (let ((stat (statistics (rc-session-server session)
+			  (rc-session-token session)
+			  t)))
+    (assoc-val 'totalChannels stat)))
 
 (defun rc-show-channels ()
   "Make buffer and write channel-list to that buffer.
