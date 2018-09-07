@@ -209,6 +209,7 @@ rc-current-session - Infomation of logined server"
 			  t)))
     (assoc-val 'totalChannels stat)))
 
+
 (defun rc-show-channels ()
   "Make buffer and write channel-list to that buffer.
 
