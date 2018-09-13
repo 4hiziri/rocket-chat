@@ -206,9 +206,10 @@ AUTH-TOKEN - auth token
 This return Rocket.Chat Server's statistics information"
   (let ((ret (condition-case nil
 		 (get-json (url-concat url "/api/v1/statistics")
-			   (auth-headers auth-token)
-			   (list (cons "refresh" (if refresh "true" "false")))))))
-    (if (assoc-val 'success ret)
+					     (auth-headers auth-token)
+					     (list (cons "refresh" (if refresh "true" "false"))))
+	       ((error-not-allowed) nil))))
+    (if (and (not ret) (assoc-val 'success ret))
 	(car ret))))
 
 ;;; api
