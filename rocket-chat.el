@@ -210,7 +210,7 @@ rc-current-session - Infomation of logined server"
     (push-mark)
     (goto-char (point-max))))
 
-(defun get-channels-count (session)
+(defun rc-get-channels-count (session)
   (let ((stat (statistics (rc-session-server session)
 			  (rc-session-token session)
 			  t)))
@@ -240,7 +240,7 @@ rc-current-session - Infomation of logined server"
 		  (insert "\n"))
 		(channels-list (rc-session-server rc-current-session)
 			       (rc-session-token rc-current-session)
-			       (get-channels-count rc-current-session)))))
+			       (rc-get-channels-count rc-current-session)))))
     (setf buffer-read-only t)))
 
 (defun rc-yourself-p (name session)
