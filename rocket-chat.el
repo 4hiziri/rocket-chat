@@ -10,6 +10,8 @@
 ;;; Commentary:
 ;;; Code:
 
+;; TODO: Add error check
+
 (eval-when-compile
   (require 'cl))
 (require 'promise)
@@ -45,6 +47,11 @@
 
 (defcustom rc-reading-post-num 100
   "Num of fetching posts."
+  :type 'sexp
+  :group 'rocket-chat)
+
+(defcustom rc-load-channels-num 50
+  "Number of channels that is loaded in channel list."
   :type 'sexp
   :group 'rocket-chat)
 
