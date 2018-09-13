@@ -10,6 +10,8 @@
 ;;; Commentary:
 ;;; Code:
 
+;; TODO: Add error check
+
 (eval-when-compile
   (require 'cl))
 (require 'promise)
@@ -45,6 +47,11 @@
 
 (defcustom rc-reading-post-num 100
   "Num of fetching posts."
+  :type 'sexp
+  :group 'rocket-chat)
+
+(defcustom rc-default-load-channels 50
+  "Number of channels that is loaded in channel list."
   :type 'sexp
   :group 'rocket-chat)
 
@@ -203,18 +210,17 @@ rc-current-session - Infomation of logined server"
     (push-mark)
     (goto-char (point-max))))
 
-(defun get-channels-count (session)
+(defun rc-get-channels-count (session)
+  "Get num of channels from statistics API.
+If API is limited, use option value"
   (let ((stat (statistics (rc-session-server session)
 			  (rc-session-token session)
 			  t)))
-    (assoc-val 'totalChannels stat)))
+    (if stat
+	(assoc-val 'totalChannels stat)
+      rc-default-load-channels)))
 
-(defun rc-show-channels ()
-  "Make buffer and write channel-list to that buffer.
-
-Channel-list is text-button.
-rc-current-session - Infomation of logined server"
-  (interactive)
+(defun rc-insert-channels (channels-list)
   (with-current-buffer rc-buffer
     (setf rc-insert-marker nil)
     (save-excursion
@@ -222,8 +228,8 @@ rc-current-session - Infomation of logined server"
 	    (inhibit-read-only t))
 	(remove-text-properties (point-min) (point-max) '(read-only t))
 	(erase-buffer)
-	(mapcan (lambda (x)
-		  (insert-text-button (channel-name x)
+        (mapcan (lambda (x)
+                  (insert-text-button (channel-name x)
 				      'action (lambda (but)
 						(rc-show-channel-contents
 						 (button-get but 'channel)))
@@ -231,10 +237,30 @@ rc-current-session - Infomation of logined server"
 				      'help-echo "Join Channel and display."
 				      'channel x)
 		  (insert "\n"))
-		(channels-list (rc-session-server rc-current-session)
-			       (rc-session-token rc-current-session)
-			       (get-channels-count rc-current-session)))))
+		channels-list)
+	(insert-text-button "more..."
+			    'action (lambda (but)
+				      (rc-insert-channels
+				       (channels-list
+					(rc-session-server rc-current-session)
+					(rc-session-token rc-current-session)
+					(+ (rc-get-channels-count rc-current-session)
+					   (button-get but 'channels-num)))))
+			    'follow-link t
+			    'help-echo "Display more channels, if exists"
+			    'channels-num (length channels-list))))
     (setf buffer-read-only t)))
+
+(defun rc-show-channels ()
+  "Make buffer and write channel-list to that buffer.
+
+Channel-list is text-button.
+rc-current-session - Infomation of logined server"
+  (interactive)
+  (let ((channels-list (channels-list (rc-session-server rc-current-session)
+				      (rc-session-token rc-current-session)
+				      (rc-get-channels-count rc-current-session))))
+    (rc-insert-channels channels-list)))
 
 (defun rc-yourself-p (name session)
   "Predicate whether NAME is username in SESSION."

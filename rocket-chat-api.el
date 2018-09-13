@@ -204,11 +204,13 @@ JSON - message-data formed json."
 URL - rc server
 AUTH-TOKEN - auth token
 This return Rocket.Chat Server's statistics information"
-  (let ((ret (get-json (url-concat url "/api/v1/statistics")
-		       (auth-headers auth-token)
-		       (list (cons "refresh" (if refresh "true" "false"))))))
-    (if (assoc-val 'success ret)
-        (car ret))))
+  (let ((ret (condition-case nil
+		 (get-json (url-concat url "/api/v1/statistics")
+					     (auth-headers auth-token)
+					     (list (cons "refresh" (if refresh "true" "false"))))
+	       ((error-not-allowed) nil))))
+    (if (and (not ret) (assoc-val 'success ret))
+	(car ret))))
 
 ;;; api
 (defun info (url)
@@ -349,7 +351,7 @@ USERID-P - This decide user-id is user-id or user-name."
 		(list (cons :email (reg-info-email reg-info))
 		      (cons :pass (reg-info-password reg-info))
 		      (cons :name (reg-info-name reg-info))
-		      (cons :username (reg-info-username reg-info)))))   
+		      (cons :username (reg-info-username reg-info)))))
     (let ((ret (post-json (concat url "/api/v1/users.register")
 			  nil
 			  (alist reg-info))))
