@@ -280,8 +280,7 @@ If API is limited, use option value"
 Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
-  (let ((channels-list (rc-fetch-all-channels rc-current-session)))
-    (rc-insert-channels channels-list)))
+  (rc-insert-channels (rc-fetch-all-channels rc-current-session)))
 
 (defun rc-yourself-p (name session)
   "Predicate whether NAME is username in SESSION."
