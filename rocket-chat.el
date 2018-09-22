@@ -95,6 +95,9 @@
   "Inserted position.")
 (make-variable-buffer-local 'rc-input-marker)
 
+(defvar rc-server-settings nil
+  "Server's setting information.")
+
 ;; faces
 (defgroup rc-faces nil
   "Faces for Rocket.chat-mode"
@@ -163,7 +166,10 @@ USERNAME - login user name
 PASSWORD - login password"
   (let ((token (login server username password)))
     (if token
-	(make-rc-session :server server :username username :token token)
+	(progn
+	  (let ((token (make-rc-session :server server :username username :token token)))
+	    (setf rc-server-settings (settings server (rc-session-token token)))
+	    token))
       (progn (message "Login Failed!: %s@%s" username server)
 	     nil))))
 
@@ -210,6 +216,7 @@ rc-current-session - Infomation of logined server"
     (push-mark)
     (goto-char (point-max))))
 
+;; FIXME: statistics isn't suitable for this.
 (defun rc-get-channels-count (session)
   "Get num of channels from statistics API.
 If API is limited, use option value"
@@ -220,7 +227,22 @@ If API is limited, use option value"
 	(assoc-val 'totalChannels stat)
       rc-default-load-channels)))
 
+(defun rc-fetch-all-channels (session)
+  "Because some Rocket.chat's APIs don't work, i need multiple queries."
+  (do ((chs nil)
+       (fetched (channels-list (rc-session-server session)
+			       (rc-session-token session)
+			       :count 0
+			       :offset 0)
+		(channels-list (rc-session-server session)
+			       (rc-session-token session)
+			       :count 0
+			       :offset (length chs))))
+      ((null fetched) chs)
+    (setf chs (append chs fetched))))
+
 (defun rc-insert-channels (channels-list)
+  "Set channels-list's content to buffer."
   (with-current-buffer rc-buffer
     (setf rc-insert-marker nil)
     (save-excursion
@@ -228,8 +250,8 @@ If API is limited, use option value"
 	    (inhibit-read-only t))
 	(remove-text-properties (point-min) (point-max) '(read-only t))
 	(erase-buffer)
-        (mapcan (lambda (x)
-                  (insert-text-button (channel-name x)
+	(mapcan (lambda (x)
+		  (insert-text-button (channel-name x)
 				      'action (lambda (but)
 						(rc-show-channel-contents
 						 (button-get but 'channel)))
@@ -238,17 +260,18 @@ If API is limited, use option value"
 				      'channel x)
 		  (insert "\n"))
 		channels-list)
-	(insert-text-button "more..."
-			    'action (lambda (but)
-				      (rc-insert-channels
-				       (channels-list
-					(rc-session-server rc-current-session)
-					(rc-session-token rc-current-session)
-					(+ (rc-get-channels-count rc-current-session)
-					   (button-get but 'channels-num)))))
-			    'follow-link t
-			    'help-echo "Display more channels, if exists"
-			    'channels-num (length channels-list))))
+	;; (insert-text-button "more..."
+	;; 		    'action (lambda (but)
+	;; 			      (rc-insert-channels
+	;; 			       (channels-list
+	;; 				(rc-session-server rc-current-session)
+	;; 				(rc-session-token rc-current-session)
+	;; 				:count (rc-get-channels-count rc-current-session)
+	;; 				:offset (button-get but 'channels-num))))
+	;; 		    'follow-link t
+	;; 		    'help-echo "Display more channels, if exists"
+	;; 		    'channels-num (length channels-list))
+	))
     (setf buffer-read-only t)))
 
 (defun rc-show-channels ()
@@ -257,9 +280,7 @@ If API is limited, use option value"
 Channel-list is text-button.
 rc-current-session - Infomation of logined server"
   (interactive)
-  (let ((channels-list (channels-list (rc-session-server rc-current-session)
-				      (rc-session-token rc-current-session)
-				      (rc-get-channels-count rc-current-session))))
+  (let ((channels-list (rc-fetch-all-channels rc-current-session)))
     (rc-insert-channels channels-list)))
 
 (defun rc-yourself-p (name session)
