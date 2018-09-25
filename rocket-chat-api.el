@@ -228,15 +228,7 @@ This function return server-info"
 
 (defun rcapi-spotlight ())
 
-(defun rcapi-statistics (auth-token &optional refresh)
-  "TOKEN - auth token
-This return Rocket.Chat Server's statistics information"
-  (let ((ret (get-json (url-concat url "/api/v1/statistics")
-		       (auth-headers auth-token)
-		       (list (cons "refresh" (if refresh "true" "false"))))))
-    (if (assoc-val 'success ret)
-
-(defun statistics (url auth-token &optional refresh)
+(defun rcapi-statistics (url auth-token &optional refresh)
   "
 URL - rc server
 AUTH-TOKEN - auth token
