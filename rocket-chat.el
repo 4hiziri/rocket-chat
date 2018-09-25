@@ -10,6 +10,8 @@
 ;;; Commentary:
 ;;; Code:
 
+;; TODO: Add error check
+
 (eval-when-compile
   (require 'cl))
 (require 'promise)
@@ -45,6 +47,11 @@
 
 (defcustom rc-reading-post-num 100
   "Num of fetching posts."
+  :type 'sexp
+  :group 'rocket-chat)
+
+(defcustom rc-default-load-channels 50
+  "Number of channels that is loaded in channel list."
   :type 'sexp
   :group 'rocket-chat)
 
@@ -87,6 +94,9 @@
 (defvar rc-input-marker nil
   "Inserted position.")
 (make-variable-buffer-local 'rc-input-marker)
+
+(defvar rc-server-settings nil
+  "Server's setting information.")
 
 ;; faces
 (defgroup rc-faces nil
@@ -155,8 +165,13 @@ SERVER - this will accessed by user
 USERNAME - login user name
 PASSWORD - login password"
   (let ((token (login server username password)))
-    (when token
-      (make-rc-session :server server :username username :token token))))
+    (if token
+	(progn
+	  (let ((token (make-rc-session :server server :username username :token token)))
+	    (setf rc-server-settings (settings server (rc-session-token token)))
+	    token))
+      (progn (message "Login Failed!: %s@%s" username server)
+	     nil))))
 
 (defun* rocket-chat (&key server username password)
   "This allow you to login to URL."
@@ -201,16 +216,33 @@ rc-current-session - Infomation of logined server"
     (push-mark)
     (goto-char (point-max))))
 
-(defun get-channels-count (session)
-  (let ((stat (rcapi-statistics (rc-session-token session))))
-    (assoc-val 'totalChannels (cdr stat))))
+;; FIXME: statistics isn't suitable for this.
+(defun rc-get-channels-count (session)
+  "Get num of channels from statistics API.
+If API is limited, use option value"
+  (let ((stat (statistics (rc-session-server session)
+			  (rc-session-token session)
+			  t)))
+    (if stat
+	(assoc-val 'totalChannels stat)
+      rc-default-load-channels)))
 
-(defun rc-show-channels ()
-  "Make buffer and write channel-list to that buffer.
+(defun rc-fetch-all-channels (session)
+  "Because some Rocket.chat's APIs don't work, i need multiple queries."
+  (do ((chs nil)
+       (fetched (channels-list (rc-session-server session)
+			       (rc-session-token session)
+			       :count 0
+			       :offset 0)
+		(channels-list (rc-session-server session)
+			       (rc-session-token session)
+			       :count 0
+			       :offset (length chs))))
+      ((null fetched) chs)
+    (setf chs (append chs fetched))))
 
-Channel-list is text-button.
-rc-current-session - Infomation of logined server"
-  (interactive)
+(defun rc-insert-channels (channels-list)
+  "Set channels-list's content to buffer."
   (with-current-buffer rc-buffer
     (setf rc-insert-marker nil)
     (save-excursion
@@ -227,10 +259,28 @@ rc-current-session - Infomation of logined server"
 				      'help-echo "Join Channel and display."
 				      'channel x)
 		  (insert "\n"))
-		(channels-list (rc-session-server rc-current-session)
-			       (rc-session-token rc-current-session)
-			       (get-channels-count rc-current-session)))))
+		channels-list)
+	;; (insert-text-button "more..."
+	;; 		    'action (lambda (but)
+	;; 			      (rc-insert-channels
+	;; 			       (channels-list
+	;; 				(rc-session-server rc-current-session)
+	;; 				(rc-session-token rc-current-session)
+	;; 				:count (rc-get-channels-count rc-current-session)
+	;; 				:offset (button-get but 'channels-num))))
+	;; 		    'follow-link t
+	;; 		    'help-echo "Display more channels, if exists"
+	;; 		    'channels-num (length channels-list))
+	))
     (setf buffer-read-only t)))
+
+(defun rc-show-channels ()
+  "Make buffer and write channel-list to that buffer.
+
+Channel-list is text-button.
+rc-current-session - Infomation of logined server"
+  (interactive)
+  (rc-insert-channels (rc-fetch-all-channels rc-current-session)))
 
 (defun rc-yourself-p (name session)
   "Predicate whether NAME is username in SESSION."

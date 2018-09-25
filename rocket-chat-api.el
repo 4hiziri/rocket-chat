@@ -84,6 +84,12 @@
   ;; parseUrls
   )
 
+(defstruct setting
+  settings
+  count
+  offset
+  total)
+
 (defun json-to-msg (json)
   "This coverts JSON to struct message.
 
@@ -229,6 +235,18 @@ This return Rocket.Chat Server's statistics information"
 		       (auth-headers auth-token)
 		       (list (cons "refresh" (if refresh "true" "false"))))))
     (if (assoc-val 'success ret)
+
+(defun statistics (url auth-token &optional refresh)
+  "
+URL - rc server
+AUTH-TOKEN - auth token
+This return Rocket.Chat Server's statistics information"
+  (let ((ret (condition-case nil
+		 (get-json (url-concat url "/api/v1/statistics")
+					     (auth-headers auth-token)
+					     (list (cons "refresh" (if refresh "true" "false"))))
+	       ((error-not-allowed) nil))))
+    (if (and (not ret) (assoc-val 'success ret))
 	(car ret))))
 
 (defun rcapi-statistics-list)
@@ -388,7 +406,6 @@ USERID-P - This decide user-id is user-id or user-name."
 
 
 ;; channel
-
 ;; :TODO optional activity UsersOnly
 (defun channels-add-all (url auth-token roomid &optional active-only-p)
   (let ((alist (list (cons :roomID roomid)))
@@ -536,11 +553,16 @@ ROOMID-P - decide field name"
 		       nil)))
     ret))
 
-(defun channels-list (url auth-token &optional count)
+;; TODO: Check sort field, raise error
+(cl-defun channels-list (url auth-token &key count offset sort)
   (let ((ret (get-json (concat url "/api/v1/channels.list")
 		       (auth-headers auth-token)
-		       (if count
-			   (list (cons "count" count))))))
+		       (remove nil (list (when count
+					   (cons "count" count))
+					 (when offset
+					   (cons "offset" offset))
+					 (when sort
+					   (cons "sort" sort)))))))
     (when (assoc-val 'success ret)
       (map 'list #'json-channel (assoc-val 'channels ret)))))
 
@@ -854,6 +876,31 @@ ROOMID-P - decide field name"
     ret))
 
 ;; setting
+(defun settings (url auth-token)
+  (let ((res (get-json (concat url "/api/v1/settings")
+		       (auth-headers auth-token)
+		       nil)))
+    (when (assoc-val 'success res)
+      (make-setting :settings (assoc-val 'settings res)
+		    :count (assoc-val 'count res)
+		    :offset (assoc-val 'offset res)
+		    :total (assoc-val 'total res)))))
+
+(defun settings-public (url)
+  (let ((res (get-json (concat url "/api/v1/settings.public")
+		       nil
+		       nil)))
+    (when (assoc-val 'success res)
+      (make-setting :settings (assoc-val 'settings res)
+		    :count (assoc-val 'count res)
+		    :offset (assoc-val 'offset res)
+		    :total (assoc-val 'total res)))))
+
+(defun settings-id (url auth-token id)
+  (get-json (concat url "/api/v1/settings/" id)
+	    (auth-headers auth-token)
+	    nil))
+
 (defun setting-get (url auth-token id)
   (get-json (concat url "/api/v1/settings/" id)
 	    (auth-headers auth-token)
