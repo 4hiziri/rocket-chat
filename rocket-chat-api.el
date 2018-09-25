@@ -210,9 +210,9 @@ JSON - message-data formed json."
 (defun ocs-query (offset count sort)
   "offset, count, sort query conversion.
 If val is nil, remove that query from returned list"
-  (remove-if #'null (list (when offset (cons "offset" offset))
-			  (when count (cons "count" count))
-			  (when sort (cons "sort" sort)))))
+  (remove nil (list (when offset (cons "offset" offset))
+		    (when count (cons "count" count))
+		    (when sort (cons "sort" sort)))))
 
 ;;; api
 
