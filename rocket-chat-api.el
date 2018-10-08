@@ -214,17 +214,28 @@ If val is nil, remove that query from returned list"
 		    (when count (cons "count" count))
 		    (when sort (cons "sort" sort)))))
 
+(defun json-query (alist)
+  )
+
 ;;; api
 
 ;;; Miscellaneous Information
-(defun rcapi-info (url)
+(cl-defun rcapi-info (url)
   "URL - server url.
-This function return server-info"
-  (let ((ret (get-json (url-concat url "/api/v1/info") nil nil)))
+This function return server's information.
+Information consists info and commit.
+But the server sometimes doesn't return values depending on its setting."
+  (let ((ret (get-json (url-expand-file-name "/api/v1/info" url) nil nil)))
     (if (assoc-val 'success ret)
 	(list (assoc 'info ret) (assoc 'commit ret)))))
 
-(defun rcapi-directory ())
+(cl-defun rcapi-directory (url auth-token text type &key offset count sort)
+  "A method, that searches by users or channels on all users and channels available on server.
+TEXT - searching text
+TYPE - searching type, official samples show users and channels"
+  (post-json (url-expand-file-name "/api/v1/directory" url)
+	     (auth-headers auth-token)
+	     ))
 
 (defun rcapi-spotlight ())
 
