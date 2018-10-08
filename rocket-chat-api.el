@@ -219,7 +219,7 @@ This return Rocket.Chat Server's statistics information"
 	(car ret))))
 
 ;;; api
-(defun info (url)
+(defun rcapi-info (url)
   "URL - server url.
 This function return server-info"
   (let ((ret (get-json (url-concat url "/api/v1/info") nil nil)))
