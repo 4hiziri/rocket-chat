@@ -230,7 +230,7 @@ But the server sometimes doesn't return values depending on its setting."
     (if (assoc-val 'success ret)
 	(list (assoc 'info ret) (assoc 'commit ret)))))
 
-(cl-defun rcapi-directory (url auth-token type text &key offset count sort fields)
+(cl-defun rcapi-directory (url auth-token type text &key fields offset count sort)
   "Search TYPE(users or channels) by TEXT, this accept ocs parms and FIELDS.
 WARN: results excludes yourown account."
   (let* ((type (cond ((eq :users type) "users")
@@ -257,19 +257,25 @@ WARN: rooms are only what the user didn't join yet."
       nil)))
 
 (defun rcapi-statistics (url auth-token &optional refresh)
-  "
-URL - rc server
-AUTH-TOKEN - auth token
-This return Rocket.Chat Server's statistics information"
+  "Fetch statistics information from URL."
   (let ((ret (condition-case nil
-		 (get-json (url-concat url "/api/v1/statistics")
-					     (auth-headers auth-token)
-					     (list (cons "refresh" (if refresh "true" "false"))))
+                 (get-json (url-expand-file-name "/api/v1/statistics" url)
+			   (auth-headers auth-token)
+			   (list (cons "refresh" (if refresh "true" "false"))))
 	       ((error-not-allowed) nil))))
-    (if (and (not ret) (assoc-val 'success ret))
-	(car ret))))
+    ;; sometimes server admin inhibits statistics API, and raises not-allowed-error
+    ;; check whether ret is nil or not.
+    (when (and ret (assoc-val 'success ret))
+      ret)))
 
-(defun rcapi-statistics-list)
+(cl-defun rcapi-statistics-list (url auth-token query &key fields offset count sort)
+  "Search statistics by QUERY, accept ocs and fields."
+  (let ((ret (get-json (url-expand-file-name "/api/v1/statistics.list" url)
+		       (auth-headers auth-token)
+		       (append (ocs-query offset count sort)
+			       (json-query :query query :fields fields)))))
+    (when (assoc-val 'success ret)
+      ret)))
 
 (defun login (url username password)
   "URL - server url.
