@@ -220,9 +220,9 @@ rc-current-session - Infomation of logined server"
 (defun rc-get-channels-count (session)
   "Get num of channels from statistics API.
 If API is limited, use option value"
-  (let ((stat (statistics (rc-session-server session)
-			  (rc-session-token session)
-			  t)))
+  (let ((stat (rcapi-statistics (rc-session-server session)
+				(rc-session-token session)
+				t)))
     (if stat
 	(assoc-val 'totalChannels stat)
       rc-default-load-channels)))
