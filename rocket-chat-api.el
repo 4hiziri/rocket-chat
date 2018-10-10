@@ -198,8 +198,7 @@ JSON - message-data formed json."
 	     :headers header
 	     :success (exec-form (setq ret data)) ;; FIXME: bad method
 	     :timeout 3
-	     :sync t
-	     )
+	     :sync t)
     ret))
 
 ;; TODO: make fetch method use key value
@@ -247,7 +246,15 @@ WARN: results excludes yourown account."
       ;; TODO: raise error? or enable to select error or return arbitrary val
       nil)))
 
-(defun rcapi-spotlight ())
+(defun rcapi-spotlight (url auth-token query)
+  "Search users or rooms by QUERY, which is visible to the user.
+WARN: rooms are only what the user didn't join yet."
+  (let* ((res (get-json (url-expand-file-name "/api/v1/spotlight" url)
+			(auth-headers auth-token)
+			(list (cons "query" query)))))
+    (if (assoc-val 'success res)
+	res
+      nil)))
 
 (defun rcapi-statistics (url auth-token &optional refresh)
   "
