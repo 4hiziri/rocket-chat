@@ -176,6 +176,7 @@ JSON - message-data formed json."
 ;; using request in each method is better?
 ;; make wrapper
 (defun post-json (url header arg-json-alist)
+  "Send POST ARG-JSON-ALIST with HEADER to URL."
   (let ((ret nil))
     (request url
 	     :type "POST"
@@ -189,6 +190,7 @@ JSON - message-data formed json."
 
 ;; TODO: type conversion. t => "true", nil => "false"
 (defun get-json (url header arg-json-alist)
+  "Send ARG-JSON-ALIST as json with HEADER to URL."
   (let ((ret nil))
     (request url
 	     :params arg-json-alist
@@ -204,18 +206,18 @@ JSON - message-data formed json."
 ;; nil means returning value immediately, lambda means callback
 ;; args -> &key callback sync ?
 
-(defun convert-to-query-repr (param-alist)
-  )
-
 (defun ocs-query (offset count sort)
-  "offset, count, sort query conversion.
+  "Convert OFFSET, COUNT, SORT to query format.
 If val is nil, remove that query from returned list"
   (remove nil (list (when offset (cons "offset" offset))
 		    (when count (cons "count" count))
 		    (when sort (cons "sort" sort)))))
 
-(defun json-query (alist)
-  )
+(cl-defun json-query (&key (query nil) (fields nil))
+  (remove nil
+	  (list
+	   (when query (cons "query" (json-encode query)))
+	   (when fields (cons "fields" (json-encode fields))))))
 
 ;;; api
 
@@ -229,13 +231,21 @@ But the server sometimes doesn't return values depending on its setting."
     (if (assoc-val 'success ret)
 	(list (assoc 'info ret) (assoc 'commit ret)))))
 
-(cl-defun rcapi-directory (url auth-token text type &key offset count sort)
-  "A method, that searches by users or channels on all users and channels available on server.
-TEXT - searching text
-TYPE - searching type, official samples show users and channels"
-  (post-json (url-expand-file-name "/api/v1/directory" url)
-	     (auth-headers auth-token)
-	     ))
+(cl-defun rcapi-directory (url auth-token type text &key offset count sort fields)
+  "Search TYPE(users or channels) by TEXT, this accept ocs parms and FIELDS.
+WARN: results excludes yourown account."
+  (let* ((type (cond ((eq :users type) "users")
+		     ((eq :channels type) "channels")
+		     (t (error "Wrong argument: TYPE must be :users or :channels"))))
+	 (res (get-json (url-expand-file-name "/api/v1/directory" url)
+			(auth-headers auth-token)
+			(append (ocs-query offset count sort)
+				(json-query :query (list :text text :type type)
+					    :fields fields)))))
+    (if (assoc-val 'success res)
+	res
+      ;; TODO: raise error? or enable to select error or return arbitrary val
+      nil)))
 
 (defun rcapi-spotlight ())
 
