@@ -311,29 +311,36 @@ WARN: rooms are only what the user didn't join yet."
       (error "Wrong asset-name, valid asset names are rcapi-asset-names")))
 
 ;;; Authentication
-(defun rcapi-login-REST (url username password)
+(defun rcapi-login-REST (url user password)
   ;;TODO: add 2FA and LDAP
-  "URL - server url.
-USERNAME - registered username
-PASSWORD - user's password"
-  (let ((ret (post-json (url-concat url "/api/v1/login")
+  "Login to URL with USER and PASSWORD."
+  (let ((ret (post-json (url-expand-file-name "/api/v1/login" url)
 			nil
-			`(("username" . ,username)
+			`(("user" . ,user)
 			  ("password" . ,password)))))
     (when (and ret (string= (assoc-val 'status ret) "success"))
       (let ((info (assoc-val 'data ret)))
 	(make-auth-token :user-id (assoc-val 'userId info)
 			 :token (assoc-val 'authToken info))))))
 
+;; TODO: test
+(defun rcapi-login-REST-2FA (url username password code)
+  (let ((ret (post-json (url-expand-file-name "/api/v1/login" url)
+			nil
+			`(("totp" . ("login" . (("user" . (("username" . ,username)
+							   ("password" . ,password)))
+						("code" . ,code))))))))
+    ret))
+
 (defun rcapi-login-google ())
 (defun rcapi-login-facebook ())
 (defun rcapi-login-twitter ())
 
 (defun logout (url auth-token)
-  "This logout from URL, need AUTH-TOKEN."
-  (let ((ret (get-json (url-concat url "/api/v1/logout")
-		       (auth-headers auth-token)
-		       nil)))
+  "Logout from URL, need AUTH-TOKEN."
+  (let ((ret (post-json (url-expand-file-name "/api/v1/logout" url)
+			(auth-headers auth-token)
+			nil)))
     (if (string= (assoc-val 'status ret) "success")
 	(let ((data (assoc-val 'data ret)))
 	  (assoc-val 'message data))
@@ -341,12 +348,9 @@ PASSWORD - user's password"
 
 (defun me (url auth-token)
   "Get user-info from URL, need AUTH-TOKEN."
-  (let ((ret nil))
-    (request (url-concat url "/api/v1/me")
-	     :parser 'json-read
-	     :headers (auth-headers auth-token)
-	     :success (exec-form (setq ret data))
-	     :sync t)
+  (let ((ret (get-json (url-expand-file-name "/api/v1/me")
+		       (auth-headers auth-token)
+		       nil)))
     ret))
 
 ;; need test
