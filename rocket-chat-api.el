@@ -277,7 +277,42 @@ WARN: rooms are only what the user didn't join yet."
     (when (assoc-val 'success ret)
       ret)))
 
-(defun login (url username password)
+;;; Assets
+(defconst rcapi-asset-names '(logo background favicon_ico favicon favicon_16
+				   favicon_32 favicon_192 favicon_512
+				   touchicon_180 touchicon_180_pre tile_70
+				   tile_144 tile_150 tile_310_square
+				   tile_310_wide safari_pinned))
+
+;; TODO: untested
+(cl-defun rcapi-assets-setAsset (url auth-token asset-name asset
+				     &optional (refreshAllClients-p t))
+  "Set ASSET as ASSET-NAME."
+  (if (member asset-name rcapi-asset-names)
+      (let ((ret (post-json (url-expand-file-name "/api/v1/assets.setAsset")
+			    (auth-headers auth-token)
+			    (remove nil
+				    (list (cons (symbol-name asset-name) asset)
+					  (when (null refreshAllClients-p)
+					    (cons "refreshAllClients" "false"))))))))
+      (error "Wrong asset-name, valid asset names are rcapi-asset-names")))
+
+;; TODO: untested
+(cl-defun rcapi-assets-unsetAsset (url auth-token asset-name
+				       &optional (refreshAllClients-p t))
+  "Unset ASSET-NAME."
+  (if (member asset-name rcapi-asset-names)
+      (let ((ret (post-json (url-expand-file-name "/api/v1/assets.setAsset")
+			    (auth-headers auth-token)
+			    (remove nil
+				    (list (cons "assetName" (symbol-name asset-name))
+					  (when (null refreshAllClients-p)
+					    (cons "refreshAllClients" "false"))))))))
+      (error "Wrong asset-name, valid asset names are rcapi-asset-names")))
+
+;;; Authentication
+(defun rcapi-login-REST (url username password)
+  ;;TODO: add 2FA and LDAP
   "URL - server url.
 USERNAME - registered username
 PASSWORD - user's password"
@@ -289,6 +324,10 @@ PASSWORD - user's password"
       (let ((info (assoc-val 'data ret)))
 	(make-auth-token :user-id (assoc-val 'userId info)
 			 :token (assoc-val 'authToken info))))))
+
+(defun rcapi-login-google ())
+(defun rcapi-login-facebook ())
+(defun rcapi-login-twitter ())
 
 (defun logout (url auth-token)
   "This logout from URL, need AUTH-TOKEN."

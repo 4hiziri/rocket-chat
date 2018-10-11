@@ -164,7 +164,7 @@ This prefer default value than input."
 SERVER - this will accessed by user
 USERNAME - login user name
 PASSWORD - login password"
-  (let ((token (login server username password)))
+  (let ((token (rcapi-login-REST server username password)))
     (if token
 	(progn
 	  (let ((token (make-rc-session :server server :username username :token token)))
