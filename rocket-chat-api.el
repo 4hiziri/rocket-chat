@@ -5,6 +5,7 @@
 ;; Author: meirvg@gmail.com
 ;; Keywords: Rocket.chat
 ;; URL: https://github.com/4hiziri/rocket-chat.git
+;; License: MIT
 ;; Package-Requires: ((cl-lib "1.0") (json "1.4") (request "20170131.1747"))
 
 ;;; Commentary:

@@ -5,6 +5,7 @@
 ;; Author: meirvg@gmail.com
 ;; Keywords: Rocket.chat, emacs
 ;; URL: https://github.com/4hiziri/rocket-chat.git
+;; License: MIT
 ;; Package-Requires: ((cl-lib "1.0") (promise "20170215.2204") (async-await "20170208.350") (request "20170131.1747"))
 
 ;;; Commentary:
