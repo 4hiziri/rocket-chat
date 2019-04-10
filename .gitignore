@@ -1,2 +1,3 @@
 erc/*
 .cask
+!docker/docker-compose.yml
