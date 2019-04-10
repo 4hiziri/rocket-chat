@@ -18,6 +18,7 @@
 (require 'promise)
 (require 'async-await)
 (require 'time)
+(require 'bui)
 
 (require 'rocket-chat-api)
 
