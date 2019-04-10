@@ -8,4 +8,5 @@
 (development
  (depends-on "request")
  (depends-on "promise")
- (depends-on "async-await"))
+ (depends-on "async-await")
+ (depends-on "bui"))
