@@ -157,7 +157,7 @@ JSON - message-data formed json."
 	"false"))
 
 ;; TODO: use request callback for async?
-(defun post-json (url header arg-json-alist)  
+(defun post-json (url header arg-json-alist)
   (request-response-data
    (request url
 			:type "POST"
