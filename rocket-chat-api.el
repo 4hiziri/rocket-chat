@@ -157,10 +157,7 @@ JSON - message-data formed json."
 	"false"))
 
 ;; TODO: use request callback for async?
-;; Instead of using return-val, set callback function to take value directly
-;; using request in each method is better?
-;; make wrapper
-(defun post-json (url header arg-json-alist)
+(defun post-json (url header arg-json-alist)  
   (request-response-data
    (request url
 			:type "POST"
@@ -170,7 +167,6 @@ JSON - message-data formed json."
 			:timeout 3
 			:sync t)))
 
-;; TODO: type conversion. t => "true", nil => "false"
 (defun get-json (url header arg-json-alist)
   (request-response-data
    (request url
