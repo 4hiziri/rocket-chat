@@ -467,8 +467,8 @@ CHANNEL - chat room
 					 (rc-insert-msg msg)))))))))))
 
 ;; TODO: make configurable
-;; WARN: interval should be more than 4.
-(setf rc-update-interval 5)
+;; WARN: interval should be more than 60?
+(setf rc-update-interval 60)
 (defun rc-update-channel-daemon ()
   "This update posts in channel of SESSION."
   (interactive)
