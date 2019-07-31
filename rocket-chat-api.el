@@ -425,7 +425,7 @@ COUNT - The amount of messages.
 UNREADS - Whether the amount of unreads should be included."
   (let ((ret (get-json (concat url "/api/v1/channels.history")
 			   (auth-headers auth-token)
-			   (remove-if #'null
+			   (cl-remove-if #'null
 				  (list (cons "roomId" roomid)
 					(when latest (cons "latest" latest))
 					(when oldest (cons "oldest" oldest))
@@ -440,7 +440,7 @@ UNREADS - Whether the amount of unreads should be included."
   (request (concat url "/api/v1/channels.history")
 	   :type "GET"
 	   :parser 'json-read
-	   :params (remove-if #'null
+	   :params (cl-remove-if #'null
 				  (list (cons "roomId" roomid)
 					(when latest (cons "latest" latest))
 					(when oldest (cons "oldest" oldest))
